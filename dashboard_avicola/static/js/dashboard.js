@@ -543,6 +543,68 @@ function updateChart(chart, labels, data) {
 }
 
 // =========================================================
+// PARVADA: selector de módulos y semana de parvada
+// =========================================================
+
+async function populateModuleSelector() {
+  const sel = document.getElementById('moduleSelect');
+  if (!sel) return;
+  try {
+    const res = await fetch(`${getBaseUrl()}/api/modulos`);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const modulos = await res.json();
+    if (!modulos.length) throw new Error('empty');
+    const current = sel.value;
+    sel.innerHTML = '';
+    modulos.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.codigo;
+      let label = m.codigo;
+      if (m.nave) label += ` (${m.nave.nombre}`;
+      if (m.granja) label += ` · ${m.granja.nombre}`;
+      if (m.nave) label += ')';
+      opt.textContent = label;
+      sel.appendChild(opt);
+    });
+    if (current && sel.querySelector(`option[value="${current}"]`)) {
+      sel.value = current;
+    }
+  } catch {
+    // Fallback si la API no responde o no hay módulos registrados
+    if (!sel.options.length) {
+      ['M1', 'M2'].forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c;
+        opt.textContent = c;
+        sel.appendChild(opt);
+      });
+    }
+  }
+}
+
+async function updateParvadaInfo() {
+  const sel = document.getElementById('moduleSelect');
+  const div = document.getElementById('parvadaInfo');
+  if (!sel || !div) return;
+  const modulo = sel.value;
+  if (!modulo) { div.textContent = ''; return; }
+  try {
+    const res = await fetch(`${getBaseUrl()}/api/parvada/${modulo}`);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (!data.parvada) { div.textContent = ''; return; }
+    const { semana, dia_semana } = data.parvada;
+    let txt = '';
+    if (data.granja) txt += `${data.granja.nombre} · `;
+    if (data.nave) txt += `${data.nave.nombre} — `;
+    txt += `Semana ${semana}, Día ${dia_semana}`;
+    div.textContent = txt;
+  } catch {
+    div.textContent = '';
+  }
+}
+
+// =========================================================
 // FUNCIONES UTILITARIAS
 // =========================================================
 
