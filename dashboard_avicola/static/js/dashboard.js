@@ -588,23 +588,28 @@ async function populateModuleSelector() {
 
 async function updateParvadaInfo() {
   const sel = document.getElementById('moduleSelect');
-  const div = document.getElementById('parvadaInfo');
-  if (!sel || !div) return;
+  const card = document.getElementById('parvadaCard');
+  if (!sel || !card) return;
   const modulo = sel.value;
-  if (!modulo) { div.textContent = ''; return; }
+  if (!modulo) { card.style.display = 'none'; return; }
   try {
     const res = await fetch(`${getBaseUrl()}/api/parvada/${modulo}`);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
-    if (!data.parvada) { div.textContent = ''; return; }
+    if (!data.parvada) { card.style.display = 'none'; return; }
+
     const { semana, dia_semana } = data.parvada;
-    let txt = '';
-    if (data.granja) txt += `${data.granja.nombre} · `;
-    if (data.nave) txt += `${data.nave.nombre} — `;
-    txt += `Semana ${semana}, Día ${dia_semana}`;
-    div.textContent = txt;
+    const semLabel = t('dashboard.parvada_sem');
+    const diaLabel = t('dashboard.parvada_dia');
+
+    document.getElementById('parvadaGranja').textContent = data.granja ? data.granja.nombre : '—';
+    document.getElementById('parvadaNave').textContent   = data.nave   ? data.nave.nombre   : '—';
+    document.getElementById('parvadaSemanaNum').textContent = `${semLabel} ${semana}`;
+    document.getElementById('parvadaDia').textContent       = `${diaLabel} ${dia_semana} / 7`;
+
+    card.style.display = '';
   } catch {
-    div.textContent = '';
+    card.style.display = 'none';
   }
 }
 

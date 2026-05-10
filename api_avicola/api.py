@@ -877,10 +877,14 @@ def get_modulos():
     try:
         # Módulos registrados en la tabla
         registered = {m.codigo: m for m in Modulo.query.all()}
-        # Módulos vistos en lecturas
-        seen_codigos = [row[0] for row in db.session.query(Lectura.modulo).distinct().all()]
+        # Módulos vistos en lecturas + su última lectura
+        seen_rows = db.session.query(
+            Lectura.modulo,
+            db.func.max(Lectura.hora).label('ultima')
+        ).group_by(Lectura.modulo).all()
+        seen_codigos = {row.modulo: row.ultima for row in seen_rows}
         # Unión de ambos
-        all_codigos = set(registered.keys()) | set(seen_codigos)
+        all_codigos = set(registered.keys()) | set(seen_codigos.keys())
         result = []
         for codigo in sorted(all_codigos):
             m = registered.get(codigo)
@@ -891,12 +895,14 @@ def get_modulos():
                 if n:
                     nave = {'id': n.id, 'nombre': n.nombre}
                     granja = {'id': n.granja.id, 'nombre': n.granja.nombre} if n.granja else None
+            ultima = seen_codigos.get(codigo)
             result.append({
                 'codigo': codigo,
                 'nombre': m.nombre if m else None,
                 'nave_id': m.nave_id if m else None,
                 'nave': nave,
-                'granja': granja
+                'granja': granja,
+                'ultima_lectura': ultima.isoformat() if ultima else None
             })
         return jsonify(result)
     except Exception as e:

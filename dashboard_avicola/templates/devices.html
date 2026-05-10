@@ -81,13 +81,14 @@
         <thead class="table-light">
           <tr>
             <th><span data-i18n="devices.th_code">Código</span></th>
+            <th><span data-i18n="devices.th_status">Estado</span></th>
             <th><span data-i18n="devices.th_assigned_nave">Nave asignada</span></th>
             <th><span data-i18n="devices.th_granja">Granja</span></th>
             <th><span data-i18n="devices.th_assign_nave">Asignar nave</span></th>
           </tr>
         </thead>
         <tbody id="modulosTableBody">
-          <tr><td colspan="4" class="text-center text-muted py-3" data-i18n="devices.loading">Cargando...</td></tr>
+          <tr><td colspan="5" class="text-center text-muted py-3" data-i18n="devices.loading">Cargando...</td></tr>
         </tbody>
       </table>
     </div>
@@ -296,15 +297,29 @@ async function loadModulos() {
   }
 }
 
+function moduleStatusBadge(ultima_lectura) {
+  if (!ultima_lectura) return `<span class="badge bg-secondary">${t('devices.status_never')}</span>`;
+  const diff = (Date.now() - new Date(ultima_lectura).getTime()) / 1000;
+  if (diff < 30)  return `<span class="badge bg-success d-flex align-items-center gap-1" style="width:fit-content;"><span class="rounded-circle bg-white" style="width:7px;height:7px;"></span>${t('devices.status_active')}</span>`;
+  if (diff < 120) return `<span class="badge bg-warning text-dark">${t('devices.status_recent')}</span>`;
+  const mins = Math.floor(diff / 60);
+  const hrs  = Math.floor(mins / 60);
+  const label = hrs >= 1
+    ? `${hrs}h ${t('devices.status_ago')}`
+    : `${mins}m ${t('devices.status_ago')}`;
+  return `<span class="badge bg-danger">${label}</span>`;
+}
+
 function renderModulos() {
   const tbody = document.getElementById('modulosTableBody');
   if (!modulos.length) {
-    tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-3">${t('devices.empty_modulos')}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-3">${t('devices.empty_modulos')}</td></tr>`;
     return;
   }
   tbody.innerHTML = modulos.map(m => `
     <tr>
       <td><strong>${esc(m.codigo)}</strong></td>
+      <td>${moduleStatusBadge(m.ultima_lectura)}</td>
       <td>${esc(m.nave ? m.nave.nombre : '—')}</td>
       <td>${esc(m.granja ? m.granja.nombre : '—')}</td>
       <td>

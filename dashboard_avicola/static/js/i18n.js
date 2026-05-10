@@ -90,6 +90,12 @@
       'dashboard.chart_nh3': 'NH₃ (Señal ADC)',
       'dashboard.chart_co': 'CO (Señal ADC)',
       'dashboard.chart_co2': 'CO₂ (ppm bruto)',
+      // Parvada card
+      'dashboard.parvada_granja': 'Granja',
+      'dashboard.parvada_nave': 'Nave',
+      'dashboard.parvada_lbl': 'SEMANA DE PARVADA',
+      'dashboard.parvada_sem': 'Sem.',
+      'dashboard.parvada_dia': 'Día',
 
       // Alertas
       'alerts.title': 'Alertas',
@@ -265,6 +271,11 @@
       'devices.required_granja': 'Selecciona una granja',
       'devices.week': 'Semana',
       'devices.day': 'Día',
+      'devices.th_status': 'Estado',
+      'devices.status_active': 'Activo',
+      'devices.status_recent': 'Reciente',
+      'devices.status_never': 'Sin datos',
+      'devices.status_ago': 'atrás',
     },
 
     en: {
@@ -354,6 +365,12 @@
       'dashboard.chart_nh3': 'NH₃ (ADC Signal)',
       'dashboard.chart_co': 'CO (ADC Signal)',
       'dashboard.chart_co2': 'CO₂ (raw ppm)',
+      // Parvada card
+      'dashboard.parvada_granja': 'Farm',
+      'dashboard.parvada_nave': 'House',
+      'dashboard.parvada_lbl': 'FLOCK WEEK',
+      'dashboard.parvada_sem': 'Wk.',
+      'dashboard.parvada_dia': 'Day',
 
       // Alerts
       'alerts.title': 'Alerts',
@@ -529,6 +546,11 @@
       'devices.required_granja': 'Select a farm',
       'devices.week': 'Week',
       'devices.day': 'Day',
+      'devices.th_status': 'Status',
+      'devices.status_active': 'Active',
+      'devices.status_recent': 'Recent',
+      'devices.status_never': 'No data',
+      'devices.status_ago': 'ago',
     }
   };
 

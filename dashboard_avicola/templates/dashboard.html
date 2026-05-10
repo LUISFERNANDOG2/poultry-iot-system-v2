@@ -13,7 +13,6 @@
     <label class="form-label fw-bold" data-i18n="dashboard.lbl_module">Módulo:</label>
     <select class="form-select" id="moduleSelect">
     </select>
-    <div id="parvadaInfo" class="mt-2 small text-muted" style="min-height:20px;"></div>
   </div>
 
   <div class="col-md-8">
@@ -78,6 +77,44 @@
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="dashboard.btn_cancel">Cancelar</button>
         <button type="button" class="btn btn-primary" onclick="saveThresholds()" data-i18n="dashboard.btn_save">Guardar Cambios</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Parvada Info Card — shown when selected module has an assigned flock -->
+<div id="parvadaCard" class="card border-start border-4 border-warning mb-3" style="display:none;">
+  <div class="card-body py-2 px-3">
+    <div class="d-flex flex-wrap align-items-center gap-3 justify-content-between">
+
+      <!-- Left: Granja › Nave breadcrumb -->
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <div class="d-flex align-items-center gap-1">
+          <i class="bi bi-geo-alt-fill text-success"></i>
+          <span class="text-muted small" data-i18n="dashboard.parvada_granja">Granja</span>
+          <span class="fw-bold ms-1" id="parvadaGranja">—</span>
+        </div>
+        <i class="bi bi-chevron-right text-muted" style="font-size:.75rem;"></i>
+        <div class="d-flex align-items-center gap-1">
+          <i class="bi bi-house-fill text-primary"></i>
+          <span class="text-muted small" data-i18n="dashboard.parvada_nave">Nave</span>
+          <span class="fw-bold ms-1" id="parvadaNave">—</span>
+        </div>
+      </div>
+
+      <!-- Right: Week number (prominent) -->
+      <div class="d-flex align-items-center gap-3">
+        <div class="vr d-none d-sm-block" style="height:36px;"></div>
+        <i class="bi bi-calendar-week-fill text-warning fs-4 d-none d-sm-block"></i>
+        <div class="lh-1">
+          <div class="text-muted text-uppercase fw-semibold" style="font-size:.68rem; letter-spacing:.05em;"
+               data-i18n="dashboard.parvada_lbl">Semana de Parvada</div>
+          <div class="d-flex align-items-baseline gap-2 mt-1">
+            <span id="parvadaSemanaNum" class="fw-bold lh-1" style="font-size:1.9rem; color:#2e7d32;">—</span>
+            <span class="text-muted" id="parvadaDia" style="font-size:.82rem;"></span>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
