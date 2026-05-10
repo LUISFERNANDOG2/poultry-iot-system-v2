@@ -47,3 +47,7 @@ desktop.ini
 .idea/
 *.swp
 *.swo
+
+# Local testing files (never commit)
+local_tests/*
+!local_tests/.gitkeep

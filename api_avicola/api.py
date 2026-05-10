@@ -370,7 +370,13 @@ def historical_data():
             query = query.filter(Lectura.modulo == house_param)
             
         lecturas = query.order_by(Lectura.hora).all()
-        
+
+        # Downsample para visualización: máximo 1500 puntos por gráfica
+        MAX_POINTS = 1500
+        if len(lecturas) > MAX_POINTS:
+            step = len(lecturas) // MAX_POINTS
+            lecturas = lecturas[::step]
+
         print(f"Obteniendo {len(lecturas)} lecturas para rango: {range_param}, casa: {house_param}")
         
         if not lecturas:
