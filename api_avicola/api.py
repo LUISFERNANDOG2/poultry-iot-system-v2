@@ -115,6 +115,17 @@ class Modulo(db.Model):
 with app.app_context():
     db.create_all()
 
+from datetime import date as date_type
+
+def calcular_semana_parvada(fecha_inicio):
+    if fecha_inicio is None:
+        return None
+    today = date_type.today()
+    days = (today - fecha_inicio).days
+    if days < 0:
+        return None
+    return {'semana': (days // 7) + 1, 'dia_semana': (days % 7) + 1, 'dias_totales': days}
+
 # Function to check and create alerts
 def check_and_create_alerts():
     """Check latest readings and create alerts if thresholds are exceeded"""
