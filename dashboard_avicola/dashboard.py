@@ -311,6 +311,85 @@ def api_umbrales():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+def _api_url():
+    return os.getenv('API_BASE_URL', 'http://localhost:5000')
+
+@app.route('/api/granjas', methods=['GET', 'POST'])
+@login_required
+def proxy_granjas():
+    try:
+        if request.method == 'GET':
+            r = requests.get(f'{_api_url()}/api/granjas', timeout=5)
+        else:
+            r = requests.post(f'{_api_url()}/api/granjas', json=request.get_json(), timeout=5)
+        return jsonify(r.json()), r.status_code
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/granjas/<int:granja_id>', methods=['PUT', 'DELETE'])
+@login_required
+def proxy_granja(granja_id):
+    try:
+        if request.method == 'PUT':
+            r = requests.put(f'{_api_url()}/api/granjas/{granja_id}', json=request.get_json(), timeout=5)
+        else:
+            r = requests.delete(f'{_api_url()}/api/granjas/{granja_id}', timeout=5)
+        return jsonify(r.json()), r.status_code
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/naves', methods=['GET', 'POST'])
+@login_required
+def proxy_naves():
+    try:
+        if request.method == 'GET':
+            params = request.args.to_dict()
+            r = requests.get(f'{_api_url()}/api/naves', params=params, timeout=5)
+        else:
+            r = requests.post(f'{_api_url()}/api/naves', json=request.get_json(), timeout=5)
+        return jsonify(r.json()), r.status_code
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/naves/<int:nave_id>', methods=['PUT', 'DELETE'])
+@login_required
+def proxy_nave(nave_id):
+    try:
+        if request.method == 'PUT':
+            r = requests.put(f'{_api_url()}/api/naves/{nave_id}', json=request.get_json(), timeout=5)
+        else:
+            r = requests.delete(f'{_api_url()}/api/naves/{nave_id}', timeout=5)
+        return jsonify(r.json()), r.status_code
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/modulos', methods=['GET'])
+@login_required
+def proxy_modulos():
+    try:
+        r = requests.get(f'{_api_url()}/api/modulos', timeout=5)
+        return jsonify(r.json()), r.status_code
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/modulos/<string:codigo>', methods=['PUT'])
+@login_required
+def proxy_modulo(codigo):
+    try:
+        r = requests.put(f'{_api_url()}/api/modulos/{codigo}', json=request.get_json(), timeout=5)
+        return jsonify(r.json()), r.status_code
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/parvada/<string:modulo>')
+@login_required
+def proxy_parvada(modulo):
+    try:
+        r = requests.get(f'{_api_url()}/api/parvada/{modulo}', timeout=5)
+        return jsonify(r.json()), r.status_code
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 #Redirigir la raíz '/' al login
 @app.route('/')
 def index():
