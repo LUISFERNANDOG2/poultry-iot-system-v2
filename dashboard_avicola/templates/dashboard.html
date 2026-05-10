@@ -3,46 +3,44 @@
 
 <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
   <div>
-    <h3 class="mb-1"><i class="bi bi-speedometer2 me-2"></i>Dashboard</h3>
-    <p class="text-muted mb-0 d-none d-md-block">Visualización de datos en tiempo real</p>
+    <h3 class="mb-1"><i class="bi bi-speedometer2 me-2"></i><span data-i18n="dashboard.title">Dashboard</span></h3>
+    <p class="text-muted mb-0 d-none d-md-block" data-i18n="dashboard.subtitle">Visualización de datos en tiempo real</p>
   </div>
 </div>
 
 <div class="row mb-3 mt-2">
   <div class="col-md-3">
-    <label class="form-label fw-bold">Módulo:</label>
+    <label class="form-label fw-bold" data-i18n="dashboard.lbl_module">Módulo:</label>
     <select class="form-select" id="moduleSelect">
-      <option value="M1">M1</option>
-      <option value="M2">M2</option>
     </select>
   </div>
 
   <div class="col-md-8">
     <div class="d-flex justify-content-between align-items-end mb-2">
-      <label class="form-label fw-bold mb-0">Rango:</label>
+      <label class="form-label fw-bold mb-0" data-i18n="dashboard.lbl_range">Rango:</label>
       <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#thresholdsModal">
-        <i class="bi bi-gear"></i> Configurar Umbrales
+        <i class="bi bi-gear"></i> <span data-i18n="dashboard.btn_thresholds">Configurar Umbrales</span>
       </button>
     </div>
 
     <div class="d-flex flex-wrap gap-2">
       <select class="form-select" id="rangeSelect">
-        <option value="1m">Último minuto</option>
-        <option value="10m">Últimos 10 minutos</option>
-        <option value="30m">Últimos 30 minutos</option>
-        <option value="1h">Última hora</option>
-        <option value="2h">Últimas 2 horas</option>
-        <option value="12h">Últimas 12 horas</option>
-        <option value="24h" selected>Últimas 24 horas</option>
-        <option value="3d">Últimos 3 días</option>
-        <option value="7d">Últimos 7 días</option>
-        <option value="custom">Rango personalizado</option>
+        <option value="1m"  data-i18n="dashboard.range_1m">Último minuto</option>
+        <option value="10m" data-i18n="dashboard.range_10m">Últimos 10 minutos</option>
+        <option value="30m" data-i18n="dashboard.range_30m">Últimos 30 minutos</option>
+        <option value="1h"  data-i18n="dashboard.range_1h">Última hora</option>
+        <option value="2h"  data-i18n="dashboard.range_2h">Últimas 2 horas</option>
+        <option value="12h" data-i18n="dashboard.range_12h">Últimas 12 horas</option>
+        <option value="24h" selected data-i18n="dashboard.range_24h">Últimas 24 horas</option>
+        <option value="3d"  data-i18n="dashboard.range_3d">Últimos 3 días</option>
+        <option value="7d"  data-i18n="dashboard.range_7d">Últimos 7 días</option>
+        <option value="custom" data-i18n="dashboard.range_custom">Rango personalizado</option>
       </select>
 
       <div class="d-flex gap-2" id="customRangeContainer" style="display:none; width: 100%;">
-        <input type="datetime-local" id="fromDate" class="form-control" placeholder="Desde">
-        <input type="datetime-local" id="toDate" class="form-control" placeholder="Hasta">
-        <button class="btn btn-primary flex-shrink-0" id="applyRangeBtn" onclick="applyCustomRange()">Filtrar</button>
+        <input type="datetime-local" id="fromDate" class="form-control" data-i18n-ph="dashboard.ph_from" placeholder="Desde">
+        <input type="datetime-local" id="toDate" class="form-control" data-i18n-ph="dashboard.ph_to" placeholder="Hasta">
+        <button class="btn btn-primary flex-shrink-0" id="applyRangeBtn" onclick="applyCustomRange()" data-i18n="dashboard.btn_filter">Filtrar</button>
       </div>
     </div>
   </div>
@@ -53,7 +51,7 @@
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Configurar Umbrales de Alerta</h5>
+        <h5 class="modal-title" data-i18n="dashboard.modal_title">Configurar Umbrales de Alerta</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
@@ -62,10 +60,10 @@
             <table class="table table-bordered">
               <thead>
                 <tr>
-                  <th>Variable</th>
-                  <th class="table-warning">Medio (Precaución)</th>
-                  <th class="table-danger">Alto (Peligro)</th>
-                  <th class="table-dark">Grave (Crítico)</th>
+                  <th data-i18n="dashboard.th_variable">Variable</th>
+                  <th class="table-warning" data-i18n="dashboard.th_medium">Medio (Precaución)</th>
+                  <th class="table-danger" data-i18n="dashboard.th_high">Alto (Peligro)</th>
+                  <th class="table-dark" data-i18n="dashboard.th_critical">Grave (Crítico)</th>
                 </tr>
               </thead>
               <tbody id="thresholdsTableBody">
@@ -76,9 +74,47 @@
         </form>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="button" class="btn btn-primary" onclick="saveThresholds()">Guardar Cambios</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="dashboard.btn_cancel">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="saveThresholds()" data-i18n="dashboard.btn_save">Guardar Cambios</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Parvada Info Card — shown when selected module has an assigned flock -->
+<div id="parvadaCard" class="card border-start border-4 border-warning mb-3" style="display:none;">
+  <div class="card-body py-2 px-3">
+    <div class="d-flex flex-wrap align-items-center gap-3 justify-content-between">
+
+      <!-- Left: Granja › Nave breadcrumb -->
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <div class="d-flex align-items-center gap-1">
+          <i class="bi bi-geo-alt-fill text-success"></i>
+          <span class="text-muted small" data-i18n="dashboard.parvada_granja">Granja</span>
+          <span class="fw-bold ms-1" id="parvadaGranja">—</span>
+        </div>
+        <i class="bi bi-chevron-right text-muted" style="font-size:.75rem;"></i>
+        <div class="d-flex align-items-center gap-1">
+          <i class="bi bi-house-fill text-primary"></i>
+          <span class="text-muted small" data-i18n="dashboard.parvada_nave">Nave</span>
+          <span class="fw-bold ms-1" id="parvadaNave">—</span>
+        </div>
+      </div>
+
+      <!-- Right: Week number (prominent) -->
+      <div class="d-flex align-items-center gap-3">
+        <div class="vr d-none d-sm-block" style="height:36px;"></div>
+        <i class="bi bi-calendar-week-fill text-warning fs-4 d-none d-sm-block"></i>
+        <div class="lh-1">
+          <div class="text-muted text-uppercase fw-semibold" style="font-size:.68rem; letter-spacing:.05em;"
+               data-i18n="dashboard.parvada_lbl">Semana de Parvada</div>
+          <div class="d-flex align-items-baseline gap-2 mt-1">
+            <span id="parvadaSemanaNum" class="fw-bold lh-1" style="font-size:1.9rem; color:#2e7d32;">—</span>
+            <span class="text-muted" id="parvadaDia" style="font-size:.82rem;"></span>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -87,21 +123,21 @@
 <div class="row text-center mb-3">
   <div class="col-6 col-md mb-3">
     <div class="card p-3">
-      <h5>Temperatura</h5>
+      <h5 data-i18n="dashboard.card_temp">Temperatura</h5>
       <p id="temp" class="value">-- °C</p>
     </div>
   </div>
 
   <div class="col-6 col-md mb-3">
     <div class="card p-3">
-      <h5>Humedad</h5>
+      <h5 data-i18n="dashboard.card_hum">Humedad</h5>
       <p id="hum" class="value">-- %</p>
     </div>
   </div>
 
   <div class="col-6 col-md mb-3">
     <div class="card p-3">
-      <h5>Amoniaco</h5>
+      <h5 data-i18n="dashboard.card_ammonia">Amoniaco</h5>
       <p id="ammonia_raw" class="value mb-0">-- ADC</p>
       <small id="ammonia_ppm" class="text-muted fw-bold" style="font-size: 0.9rem;">-- ppm (calc)</small>
     </div>
@@ -109,7 +145,7 @@
 
   <div class="col-6 col-md mb-3">
     <div class="card p-3">
-      <h5>CO</h5>
+      <h5 data-i18n="dashboard.card_co">CO</h5>
       <p id="co_raw" class="value mb-0">-- ADC</p>
       <small id="co_ppm" class="text-muted fw-bold" style="font-size: 0.9rem;">-- ppm (calc)</small>
     </div>
@@ -117,7 +153,7 @@
 
   <div class="col-6 col-md mb-3">
     <div class="card p-3">
-      <h5>CO₂</h5>
+      <h5 data-i18n="dashboard.card_co2">CO₂</h5>
       <p id="co2" class="value mb-0">-- ppm</p>
       <small id="co2_info" class="text-muted fw-bold" style="font-size: 0.9rem;"></small>
     </div>
@@ -130,11 +166,11 @@
     <div class="alert alert-info text-center mb-0">
       <div class="d-flex flex-column flex-md-row justify-content-center align-items-center gap-2">
         <div>
-          <strong>Estado de Conexión: </strong>
+          <strong data-i18n="dashboard.status_label">Estado de Conexión:</strong>
           <span id="lastUpdate"> </span>
           <span id="lastUpdateTime" class="text-muted ms-2"></span>
         </div>
-        <span id="connectionStatus" class="badge bg-success">Conectado</span>
+        <span id="connectionStatus" class="badge bg-success" data-i18n="dashboard.connected">Conectado</span>
       </div>
     </div>
   </div>
@@ -144,40 +180,98 @@
 <div class="row g-4 mb-4">
   <div class="col-md-6">
     <div class="chart-container">
-      <h6 class="mb-3">Temperature</h6>
+      <h6 class="mb-3" data-i18n="dashboard.card_temp">Temperatura</h6>
       <canvas id="temperatureChart"></canvas>
     </div>
   </div>
   <div class="col-md-6">
     <div class="chart-container">
-      <h6 class="mb-3">Humidity</h6>
+      <h6 class="mb-3" data-i18n="dashboard.card_hum">Humedad</h6>
       <canvas id="humidityChart"></canvas>
     </div>
   </div>
   <div class="col-md-6">
     <div class="chart-container">
-      <h6 class="mb-3">NH₃ (Sensor Raw Signal)</h6>
+      <h6 class="mb-3" data-i18n="dashboard.card_ammonia">Amoniaco</h6>
       <canvas id="ammoniaChart"></canvas>
     </div>
   </div>
   <div class="col-md-6">
     <div class="chart-container">
-      <h6 class="mb-3">CO (Sensor Raw Signal)</h6>
+      <h6 class="mb-3" data-i18n="dashboard.card_co">CO</h6>
       <canvas id="coChart"></canvas>
     </div>
   </div>
   <div class="col-md-6">
     <div class="chart-container">
-      <h6 class="mb-3">CO₂</h6>
+      <h6 class="mb-3" data-i18n="dashboard.card_co2">CO₂</h6>
       <canvas id="co2Chart"></canvas>
     </div>
   </div>
 </div>
 
-<script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
-<script src="{{ url_for('static', filename='vendor/luxon.min.js') }}"></script>
-<script src="{{ url_for('static', filename='vendor/chartjs-adapter-luxon.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
-<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    initializeDashboard();
+    // Refresh live data every 5 seconds
+    setInterval(updateLiveData, 5000);
+  });
+
+  // Re-init charts labels when language changes
+  document.addEventListener('langchange', function () {
+    if (window.temperatureChart) {
+      temperatureChart.data.datasets[0].label = t('dashboard.chart_temp');
+      temperatureChart.update('none');
+    }
+    if (window.humidityChart) {
+      humidityChart.data.datasets[0].label = t('dashboard.chart_hum');
+      humidityChart.update('none');
+    }
+    if (window.ammoniaChart) {
+      ammoniaChart.data.datasets[0].label = t('dashboard.chart_nh3');
+      ammoniaChart.update('none');
+    }
+    if (window.coChart) {
+      coChart.data.datasets[0].label = t('dashboard.chart_co');
+      coChart.update('none');
+    }
+    if (window.co2Chart) {
+      co2Chart.data.datasets[0].label = t('dashboard.chart_co2');
+      co2Chart.update('none');
+    }
+    // Update connection badge text
+    const badge = document.getElementById('connectionStatus');
+    if (badge) {
+      const isConnected = badge.classList.contains('bg-success');
+      badge.textContent = isConnected ? t('dashboard.connected') : t('dashboard.disconnected');
+    }
+  });
+</script>
+
+<style>
+  .value {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: #2e7d32;
+  }
+
+  .chart-container {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  @media (max-width: 768px) {
+    .value {
+      font-size: 1.4rem;
+    }
+    .chart-container {
+      padding: 12px;
+    }
+  }
+</style>
 
 {% endblock %}

@@ -8,6 +8,9 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="{{ url_for('static', filename='vendor/luxon.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='vendor/chartjs-adapter-luxon.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
 
   <style>
     * {
@@ -156,8 +159,11 @@
     <button class="sidebar-toggle" onclick="toggleSidebar()" aria-label="Toggle sidebar">
       <i class="bi bi-list"></i>
     </button>
-    <h5>Sustainable Poultry Farms Monitoring System</h5>
-    <span class="d-none d-md-inline">Last update: <strong id="lastUpdate">--</strong></span>
+    <h5 data-i18n="app.title">Sistema de Monitoreo de Granjas Avícolas</h5>
+    <div class="d-flex align-items-center gap-3">
+      <span class="d-none d-md-inline"><span data-i18n="app.last_update">Última actualización:</span> <strong id="lastUpdate">--</strong></span>
+      <button class="btn btn-sm btn-outline-light lang-toggle-btn" onclick="toggleLanguage()" title="Switch to English" style="min-width:36px; font-weight:600;">EN</button>
+    </div>
   </div>
 
   <div class="sidebar-overlay" onclick="closeSidebar()"
@@ -177,23 +183,19 @@
           <i class="bi bi-gear-fill"></i>
         </button>
         <div class="text-start">
-          <div id="userName" title="">Dr. Gustavo</div>
-          <small id="userRole" title="">Administrator</small>
+          <div id="userName" title="">...</div>
+          <small id="userRole" title="">...</small>
         </div>
       </div>
     </div>
 
-    <a href="/dashboard" class="{% if active=='dashboard' %}active{% endif %}"><i
-        class="bi bi-speedometer2 me-2"></i>Dashboard</a>
-    <a href="/historical" class="{% if active=='historical' %}active{% endif %}"><i
-        class="bi bi-clock-history me-2"></i>Historical Data</a>
-
-    <a href="/alerts" class="{% if active=='alerts' %}active{% endif %}"><i
-        class="bi bi-exclamation-triangle me-2"></i>Alerts</a>
+    <a href="/dashboard" class="{% if active=='dashboard' %}active{% endif %}"><i class="bi bi-speedometer2 me-2"></i><span data-i18n="nav.dashboard">Dashboard</span></a>
+    <a href="/historical" class="{% if active=='historical' %}active{% endif %}"><i class="bi bi-clock-history me-2"></i><span data-i18n="nav.historical">Datos Históricos</span></a>
+    <a href="/alerts" class="{% if active=='alerts' %}active{% endif %}"><i class="bi bi-exclamation-triangle me-2"></i><span data-i18n="nav.alerts">Alertas</span></a>
+    <a href="/devices" class="{% if active=='devices' %}active{% endif %}"><i class="bi bi-house-door me-2"></i><span data-i18n="nav.devices">Naves y Módulos</span></a>
 
     <!-- <a href="/analysis" class="{% if active=='analysis' %}active{% endif %}"><i
         class="bi bi-graph-up me-2"></i>Analysis</a>
-    <a href="/devices" class="{% if active=='devices' %}active{% endif %}"><i class="bi bi-devices me-2"></i>Devices</a>
     <a href="/ml_models" class="{% if active=='ml_models' %}active{% endif %}"><i class="bi bi-robot me-2"></i>ML
       Models</a>
     <a href="/reports" class="{% if active=='reports' %}active{% endif %}"><i
@@ -210,26 +212,26 @@
     <div class="modal-dialog">
       <div class="modal-content text-dark">
         <div class="modal-header">
-          <h5 class="modal-title">Edit Profile</h5>
+          <h5 class="modal-title" data-i18n="profile.edit_title">Editar Perfil</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
           <div class="mb-3">
-            <label class="form-label">Name</label>
+            <label class="form-label" data-i18n="profile.name">Nombre</label>
             <input type="text" class="form-control" id="editName" value="Dr. Gustavo" maxlength="50">
           </div>
           <div class="mb-3">
-            <label class="form-label">Role</label>
-            <input type="text" class="form-control" id="editRole" value="Administrator" maxlength="30">
+            <label class="form-label" data-i18n="profile.role">Rol</label>
+            <input type="text" class="form-control" id="editRole" value="Administrador" maxlength="30">
           </div>
           <div class="mb-3">
-            <label class="form-label">Initials</label>
+            <label class="form-label" data-i18n="profile.initials">Iniciales</label>
             <input type="text" class="form-control" id="editInitials" value="DG" maxlength="3">
           </div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-          <button type="button" class="btn btn-primary" onclick="saveProfile()">Save changes</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="profile.close">Cerrar</button>
+          <button type="button" class="btn btn-primary" onclick="saveProfile()" data-i18n="profile.save">Guardar cambios</button>
         </div>
       </div>
     </div>
@@ -384,11 +386,11 @@
           const modal = bootstrap.Modal.getInstance(modalEl);
           modal.hide();
         } else {
-          alert('Error updating profile');
+          alert(t('profile.error_update'));
         }
       } catch (err) {
         console.error(err);
-        alert('Connection error');
+        alert(t('profile.error_connection'));
       }
     }
 

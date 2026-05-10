@@ -390,7 +390,7 @@ function updateMetricCards(data) {
 // INICIALIZACIÓN DEL DASHBOARD
 // =========================================================
 
-function initializeDashboard() {
+async function initializeDashboard() {
   // Cargar calibración desde localStorage
   loadCalibrationFromStorage();
 
@@ -400,15 +400,19 @@ function initializeDashboard() {
   console.log(`   MQ-137 R0: ${MQ137_R0.toFixed(0)}Ω (RAW=522 → ${calculatePPM(522, 'NH3').toFixed(1)} ppm)`);
   console.log(`   Altitud: ${ALTITUDE_METERS}m (Factor: ${ALTITUDE_FACTOR})`);
 
+  // Poblar selector de módulos desde la API
+  await populateModuleSelector();
+  updateParvadaInfo();
+
   // Configurar selector de rango
   setupRangeSelector();
 
   // Inicializar gráficas
-  temperatureChart = initChart(document.getElementById('temperatureChart'), "Temperature (°C)", "#43a047");
-  humidityChart = initChart(document.getElementById('humidityChart'), "Humidity (%)", "#1e88e5");
-  ammoniaChart = initChart(document.getElementById('ammoniaChart'), "NH₃ (ADC)", "#fb8c00");
-  coChart = initChart(document.getElementById('coChart'), "CO (ADC)", "#43a047");
-  co2Chart = initChart(document.getElementById('co2Chart'), "CO₂ (raw ppm)", "#e53935");
+  temperatureChart = initChart(document.getElementById('temperatureChart'), t('dashboard.chart_temp'), "#43a047");
+  humidityChart = initChart(document.getElementById('humidityChart'), t('dashboard.chart_hum'), "#1e88e5");
+  ammoniaChart = initChart(document.getElementById('ammoniaChart'), t('dashboard.chart_nh3'), "#fb8c00");
+  coChart = initChart(document.getElementById('coChart'), t('dashboard.chart_co'), "#43a047");
+  co2Chart = initChart(document.getElementById('co2Chart'), t('dashboard.chart_co2'), "#e53935");
 
   // Cargar datos iniciales
   loadHistorical("24h");
@@ -543,6 +547,73 @@ function updateChart(chart, labels, data) {
 }
 
 // =========================================================
+// PARVADA: selector de módulos y semana de parvada
+// =========================================================
+
+async function populateModuleSelector() {
+  const sel = document.getElementById('moduleSelect');
+  if (!sel) return;
+  try {
+    const res = await fetch(`${getBaseUrl()}/api/modulos`);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const modulos = await res.json();
+    if (!modulos.length) throw new Error('empty');
+    const current = sel.value;
+    sel.innerHTML = '';
+    modulos.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.codigo;
+      let label = m.codigo;
+      if (m.nave) label += ` (${m.nave.nombre}`;
+      if (m.granja) label += ` · ${m.granja.nombre}`;
+      if (m.nave) label += ')';
+      opt.textContent = label;
+      sel.appendChild(opt);
+    });
+    if (current && sel.querySelector(`option[value="${current}"]`)) {
+      sel.value = current;
+    }
+  } catch {
+    // Fallback si la API no responde o no hay módulos registrados
+    if (!sel.options.length) {
+      ['M1', 'M2'].forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c;
+        opt.textContent = c;
+        sel.appendChild(opt);
+      });
+    }
+  }
+}
+
+async function updateParvadaInfo() {
+  const sel = document.getElementById('moduleSelect');
+  const card = document.getElementById('parvadaCard');
+  if (!sel || !card) return;
+  const modulo = sel.value;
+  if (!modulo) { card.style.display = 'none'; return; }
+  try {
+    const res = await fetch(`${getBaseUrl()}/api/parvada/${modulo}`);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (!data.parvada) { card.style.display = 'none'; return; }
+
+    const { semana, dia_semana } = data.parvada;
+    const semLabel = t('dashboard.parvada_sem');
+    const diaLabel = t('dashboard.parvada_dia');
+
+    document.getElementById('parvadaGranja').textContent = data.granja ? data.granja.nombre : '—';
+    document.getElementById('parvadaNave').textContent   = data.nave   ? data.nave.nombre   : '—';
+    document.getElementById('parvadaSemanaNum').textContent = `${semLabel} ${semana}`;
+    document.getElementById('parvadaDia').textContent       = `${diaLabel} ${dia_semana} / 7`;
+
+    card.style.display = '';
+  } catch {
+    card.style.display = 'none';
+  }
+}
+
+// =========================================================
 // FUNCIONES UTILITARIAS
 // =========================================================
 
@@ -569,9 +640,10 @@ function setupRangeSelector() {
   // Add module selector event listener
   if (moduleSelect) {
     moduleSelect.addEventListener('change', () => {
+      updateParvadaInfo();
       // Update live data immediately
       updateLiveData();
-      
+
       // Update historical data
       const range = rangeSelect.value;
       if (range === 'custom') {
@@ -778,7 +850,7 @@ setInterval(() => {
 
   if (!lastRealUpdate) {
     status.className = 'badge bg-danger';
-    status.textContent = 'Desconectado';
+    status.textContent = t('dashboard.disconnected');
     if (timeAgoEl) timeAgoEl.textContent = "";
     return;
   }
@@ -787,10 +859,10 @@ setInterval(() => {
 
   if (diff > 15) {
     status.className = 'badge bg-danger';
-    status.textContent = 'Desconectado';
+    status.textContent = t('dashboard.disconnected');
   } else {
     status.className = 'badge bg-success';
-    status.textContent = 'Conectado';
+    status.textContent = t('dashboard.connected');
   }
 
   if (timeAgoEl && diff > 5) {
@@ -815,8 +887,6 @@ function createHistoricalStatus() {
 // =========================================================
 // INICIALIZACIÓN Y INTERVALOS
 // =========================================================
-
-document.addEventListener('DOMContentLoaded', initializeDashboard);
 
 // Live data cada 1 segundo
 // La actualización coincide con el firmware (5s) para ahorrar recursos
