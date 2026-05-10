@@ -390,7 +390,7 @@ function updateMetricCards(data) {
 // INICIALIZACIÓN DEL DASHBOARD
 // =========================================================
 
-function initializeDashboard() {
+async function initializeDashboard() {
   // Cargar calibración desde localStorage
   loadCalibrationFromStorage();
 
@@ -399,6 +399,10 @@ function initializeDashboard() {
   console.log(`   MQ-7 R0: ${MQ7_R0.toFixed(0)}Ω (RAW=111 → ${calculatePPM(111, 'CO').toFixed(1)} ppm)`);
   console.log(`   MQ-137 R0: ${MQ137_R0.toFixed(0)}Ω (RAW=522 → ${calculatePPM(522, 'NH3').toFixed(1)} ppm)`);
   console.log(`   Altitud: ${ALTITUDE_METERS}m (Factor: ${ALTITUDE_FACTOR})`);
+
+  // Poblar selector de módulos desde la API
+  await populateModuleSelector();
+  updateParvadaInfo();
 
   // Configurar selector de rango
   setupRangeSelector();
@@ -631,9 +635,10 @@ function setupRangeSelector() {
   // Add module selector event listener
   if (moduleSelect) {
     moduleSelect.addEventListener('change', () => {
+      updateParvadaInfo();
       // Update live data immediately
       updateLiveData();
-      
+
       // Update historical data
       const range = rangeSelect.value;
       if (range === 'custom') {
