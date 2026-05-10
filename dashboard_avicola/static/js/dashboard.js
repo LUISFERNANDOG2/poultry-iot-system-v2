@@ -408,11 +408,11 @@ async function initializeDashboard() {
   setupRangeSelector();
 
   // Inicializar gráficas
-  temperatureChart = initChart(document.getElementById('temperatureChart'), "Temperature (°C)", "#43a047");
-  humidityChart = initChart(document.getElementById('humidityChart'), "Humidity (%)", "#1e88e5");
-  ammoniaChart = initChart(document.getElementById('ammoniaChart'), "NH₃ (ADC)", "#fb8c00");
-  coChart = initChart(document.getElementById('coChart'), "CO (ADC)", "#43a047");
-  co2Chart = initChart(document.getElementById('co2Chart'), "CO₂ (raw ppm)", "#e53935");
+  temperatureChart = initChart(document.getElementById('temperatureChart'), t('dashboard.chart_temp'), "#43a047");
+  humidityChart = initChart(document.getElementById('humidityChart'), t('dashboard.chart_hum'), "#1e88e5");
+  ammoniaChart = initChart(document.getElementById('ammoniaChart'), t('dashboard.chart_nh3'), "#fb8c00");
+  coChart = initChart(document.getElementById('coChart'), t('dashboard.chart_co'), "#43a047");
+  co2Chart = initChart(document.getElementById('co2Chart'), t('dashboard.chart_co2'), "#e53935");
 
   // Cargar datos iniciales
   loadHistorical("24h");
@@ -845,7 +845,7 @@ setInterval(() => {
 
   if (!lastRealUpdate) {
     status.className = 'badge bg-danger';
-    status.textContent = 'Desconectado';
+    status.textContent = t('dashboard.disconnected');
     if (timeAgoEl) timeAgoEl.textContent = "";
     return;
   }
@@ -854,10 +854,10 @@ setInterval(() => {
 
   if (diff > 15) {
     status.className = 'badge bg-danger';
-    status.textContent = 'Desconectado';
+    status.textContent = t('dashboard.disconnected');
   } else {
     status.className = 'badge bg-success';
-    status.textContent = 'Conectado';
+    status.textContent = t('dashboard.connected');
   }
 
   if (timeAgoEl && diff > 5) {
