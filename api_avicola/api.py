@@ -722,6 +722,231 @@ def trigger_alert_check():
         print(f"Error checking alerts: {e}")
         return jsonify({'error': str(e)}), 500
 
+# -------------------------------------------------------
+# Granjas CRUD
+# -------------------------------------------------------
+
+@app.route('/api/granjas', methods=['GET'])
+def get_granjas():
+    try:
+        granjas = Granja.query.all()
+        result = []
+        for g in granjas:
+            result.append({
+                'id': g.id,
+                'nombre': g.nombre,
+                'ubicacion': g.ubicacion,
+                'naves': [{'id': n.id, 'nombre': n.nombre} for n in g.naves]
+            })
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/granjas', methods=['POST'])
+def create_granja():
+    try:
+        data = request.get_json()
+        if not data or not data.get('nombre'):
+            return jsonify({'error': 'nombre is required'}), 400
+        granja = Granja(nombre=data['nombre'], ubicacion=data.get('ubicacion'))
+        db.session.add(granja)
+        db.session.commit()
+        return jsonify({'id': granja.id, 'nombre': granja.nombre}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/granjas/<int:granja_id>', methods=['PUT'])
+def update_granja(granja_id):
+    try:
+        granja = Granja.query.get_or_404(granja_id)
+        data = request.get_json()
+        if 'nombre' in data:
+            granja.nombre = data['nombre']
+        if 'ubicacion' in data:
+            granja.ubicacion = data['ubicacion']
+        db.session.commit()
+        return jsonify({'msg': 'Granja actualizada'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/granjas/<int:granja_id>', methods=['DELETE'])
+def delete_granja(granja_id):
+    try:
+        granja = Granja.query.get_or_404(granja_id)
+        if granja.naves:
+            return jsonify({'error': 'No se puede eliminar: tiene naves asociadas'}), 409
+        db.session.delete(granja)
+        db.session.commit()
+        return jsonify({'msg': 'Granja eliminada'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+# -------------------------------------------------------
+# Naves CRUD
+# -------------------------------------------------------
+
+@app.route('/api/naves', methods=['GET'])
+def get_naves():
+    try:
+        granja_id = request.args.get('granja_id', type=int)
+        query = Nave.query
+        if granja_id:
+            query = query.filter_by(granja_id=granja_id)
+        naves = query.all()
+        result = []
+        for n in naves:
+            parvada = calcular_semana_parvada(n.fecha_inicio_parvada)
+            result.append({
+                'id': n.id,
+                'nombre': n.nombre,
+                'granja_id': n.granja_id,
+                'granja_nombre': n.granja.nombre if n.granja else None,
+                'fecha_inicio_parvada': n.fecha_inicio_parvada.isoformat() if n.fecha_inicio_parvada else None,
+                'parvada': parvada,
+                'modulos': [{'id': m.id, 'codigo': m.codigo} for m in n.modulos]
+            })
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/naves', methods=['POST'])
+def create_nave():
+    try:
+        data = request.get_json()
+        if not data or not data.get('nombre') or not data.get('granja_id'):
+            return jsonify({'error': 'nombre y granja_id son requeridos'}), 400
+        fecha = None
+        if data.get('fecha_inicio_parvada'):
+            from datetime import date as date_type
+            fecha = date_type.fromisoformat(data['fecha_inicio_parvada'])
+        nave = Nave(
+            nombre=data['nombre'],
+            granja_id=data['granja_id'],
+            fecha_inicio_parvada=fecha
+        )
+        db.session.add(nave)
+        db.session.commit()
+        return jsonify({'id': nave.id, 'nombre': nave.nombre}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/naves/<int:nave_id>', methods=['PUT'])
+def update_nave(nave_id):
+    try:
+        nave = Nave.query.get_or_404(nave_id)
+        data = request.get_json()
+        if 'nombre' in data:
+            nave.nombre = data['nombre']
+        if 'granja_id' in data:
+            nave.granja_id = data['granja_id']
+        if 'fecha_inicio_parvada' in data:
+            if data['fecha_inicio_parvada']:
+                from datetime import date as date_type
+                nave.fecha_inicio_parvada = date_type.fromisoformat(data['fecha_inicio_parvada'])
+            else:
+                nave.fecha_inicio_parvada = None
+        db.session.commit()
+        return jsonify({'msg': 'Nave actualizada'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/naves/<int:nave_id>', methods=['DELETE'])
+def delete_nave(nave_id):
+    try:
+        nave = Nave.query.get_or_404(nave_id)
+        if nave.modulos:
+            return jsonify({'error': 'No se puede eliminar: tiene módulos asociados'}), 409
+        db.session.delete(nave)
+        db.session.commit()
+        return jsonify({'msg': 'Nave eliminada'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+# -------------------------------------------------------
+# Módulos registry
+# -------------------------------------------------------
+
+@app.route('/api/modulos', methods=['GET'])
+def get_modulos():
+    try:
+        # Módulos registrados en la tabla
+        registered = {m.codigo: m for m in Modulo.query.all()}
+        # Módulos vistos en lecturas
+        seen_codigos = [row[0] for row in db.session.query(Lectura.modulo).distinct().all()]
+        # Unión de ambos
+        all_codigos = set(registered.keys()) | set(seen_codigos)
+        result = []
+        for codigo in sorted(all_codigos):
+            m = registered.get(codigo)
+            nave = None
+            granja = None
+            if m and m.nave_id:
+                n = Nave.query.get(m.nave_id)
+                if n:
+                    nave = {'id': n.id, 'nombre': n.nombre}
+                    granja = {'id': n.granja.id, 'nombre': n.granja.nombre} if n.granja else None
+            result.append({
+                'codigo': codigo,
+                'nombre': m.nombre if m else None,
+                'nave_id': m.nave_id if m else None,
+                'nave': nave,
+                'granja': granja
+            })
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/modulos/<string:codigo>', methods=['PUT'])
+def update_modulo(codigo):
+    try:
+        data = request.get_json()
+        m = Modulo.query.filter_by(codigo=codigo).first()
+        if not m:
+            m = Modulo(codigo=codigo)
+            db.session.add(m)
+        if 'nave_id' in data:
+            m.nave_id = data['nave_id']
+        if 'nombre' in data:
+            m.nombre = data['nombre']
+        db.session.commit()
+        return jsonify({'msg': 'Módulo actualizado', 'codigo': codigo})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+# -------------------------------------------------------
+# Parvada lookup
+# -------------------------------------------------------
+
+@app.route('/api/parvada/<string:modulo_codigo>', methods=['GET'])
+@limiter.exempt
+def get_parvada(modulo_codigo):
+    try:
+        m = Modulo.query.filter_by(codigo=modulo_codigo).first()
+        if not m or not m.nave_id:
+            return jsonify({'parvada': None, 'nave': None, 'granja': None})
+        nave = Nave.query.get(m.nave_id)
+        if not nave:
+            return jsonify({'parvada': None, 'nave': None, 'granja': None})
+        parvada = calcular_semana_parvada(nave.fecha_inicio_parvada)
+        granja_data = None
+        if nave.granja:
+            granja_data = {'id': nave.granja.id, 'nombre': nave.granja.nombre, 'ubicacion': nave.granja.ubicacion}
+        return jsonify({
+            'parvada': parvada,
+            'nave': {'id': nave.id, 'nombre': nave.nombre},
+            'granja': granja_data
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 def start(port=5000, host='0.0.0.0'):
     app.run(debug=True, port=port, host=host, use_reloader=False)
 
