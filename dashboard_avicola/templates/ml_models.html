@@ -1,0 +1,642 @@
+{% extends 'base.html' %}
+{% block title %}ML Models{% endblock %}
+{% block content %}
+
+
+  <!-- Header -->
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+    <div>
+      <h3 class="mb-1">🤖 Machine Learning Models</h3>
+      <p class="text-muted mb-0 d-none d-md-block">AI-powered predictions and analytics for farm optimization</p>
+    </div>
+    <div class="d-flex flex-column flex-sm-row gap-2 w-100 w-md-auto">
+      <button class="btn btn-primary btn-sm" onclick="trainNewModel()">
+        <span>➕</span> Train New Model
+      </button>
+      <button class="btn btn-outline-secondary btn-sm" onclick="exportModels()">
+        <span>📥</span> Export
+      </button>
+    </div>
+  </div>
+
+  <!-- Model Summary Cards -->
+  <div class="row mb-4">
+    <div class="col-md-3 mb-3">
+      <div class="card p-3 border-start border-primary border-4">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <small class="text-muted d-block mb-1">Active Models</small>
+            <h4 class="mb-0 text-primary" id="activeModels">5</h4>
+            <small class="text-primary">In production</small>
+          </div>
+          <div class="bg-primary bg-opacity-10 rounded-circle p-3">
+            <span style="font-size: 1.5rem;">🤖</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="card p-3 border-start border-success border-4">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <small class="text-muted d-block mb-1">Avg Accuracy</small>
+            <h4 class="mb-0 text-success" id="avgAccuracy">94.2%</h4>
+            <small class="text-success">+2.1% this month</small>
+          </div>
+          <div class="bg-success bg-opacity-10 rounded-circle p-3">
+            <span style="font-size: 1.5rem;">📊</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="card p-3 border-start border-info border-4">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <small class="text-muted d-block mb-1">Predictions Today</small>
+            <h4 class="mb-0 text-info" id="predictionsCount">1,247</h4>
+            <small class="text-info">Real-time processing</small>
+          </div>
+          <div class="bg-info bg-opacity-10 rounded-circle p-3">
+            <span style="font-size: 1.5rem;">🔮</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="card p-3 border-start border-warning border-4">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <small class="text-muted d-block mb-1">Training Jobs</small>
+            <h4 class="mb-0 text-warning" id="trainingJobs">2</h4>
+            <small class="text-warning">In progress</small>
+          </div>
+          <div class="bg-warning bg-opacity-10 rounded-circle p-3">
+            <span style="font-size: 1.5rem;">⚙️</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Model Cards -->
+  <div class="row mb-4">
+    <div class="col-md-6 mb-3">
+      <div class="card h-100">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+          <h6 class="mb-0">Temperature Prediction Model</h6>
+          <span class="badge bg-success">Active</span>
+        </div>
+        <div class="card-body">
+          <div class="row mb-3">
+            <div class="col-6">
+              <small class="text-muted d-block">Accuracy</small>
+              <strong class="text-success">96.3%</strong>
+            </div>
+            <div class="col-6">
+              <small class="text-muted d-block">RMSE</small>
+              <strong>0.42°C</strong>
+            </div>
+            <div class="col-6 mt-2">
+              <small class="text-muted d-block">R² Score</small>
+              <strong>0.94</strong>
+            </div>
+            <div class="col-6 mt-2">
+              <small class="text-muted d-block">Last Training</small>
+              <strong>2 days ago</strong>
+            </div>
+          </div>
+          <div class="mb-3">
+            <small class="text-muted d-block mb-2">Prediction Horizon</small>
+            <div class="btn-group btn-group-sm w-100" role="group">
+              <button type="button" class="btn btn-outline-primary active" onclick="updatePrediction('temp', 12)">12h</button>
+              <button type="button" class="btn btn-outline-primary" onclick="updatePrediction('temp', 24)">24h</button>
+              <button type="button" class="btn btn-outline-primary" onclick="updatePrediction('temp', 48)">48h</button>
+            </div>
+          </div>
+          <canvas id="tempPredictionChart"></canvas>
+          <div class="mt-3">
+            <button class="btn btn-sm btn-outline-primary" onclick="retrainModel('temperature')">Retrain Model</button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="viewModelDetails('temperature')">View Details</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6 mb-3">
+      <div class="card h-100">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+          <h6 class="mb-0">NH₃ Anomaly Detection</h6>
+          <span class="badge bg-success">Active</span>
+        </div>
+        <div class="card-body">
+          <div class="row mb-3">
+            <div class="col-6">
+              <small class="text-muted d-block">Precision</small>
+              <strong class="text-success">92.1%</strong>
+            </div>
+            <div class="col-6">
+              <small class="text-muted d-block">Recall</small>
+              <strong>88.7%</strong>
+            </div>
+            <div class="col-6 mt-2">
+              <small class="text-muted d-block">F1 Score</small>
+              <strong>0.90</strong>
+            </div>
+            <div class="col-6 mt-2">
+              <small class="text-muted d-block">Anomalies Detected</small>
+              <strong class="text-warning">3 today</strong>
+            </div>
+          </div>
+          <canvas id="anomalyDetectionChart"></canvas>
+          <div class="mt-3">
+            <button class="btn btn-sm btn-outline-primary" onclick="retrainModel('anomaly')">Retrain Model</button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="viewModelDetails('anomaly')">View Details</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Model Performance Comparison -->
+  <div class="row mb-4">
+    <div class="col-md-12">
+      <div class="card">
+        <div class="card-header bg-white">
+          <h6 class="mb-0">Model Performance Comparison</h6>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-hover">
+              <thead>
+                <tr>
+                  <th>Model Name</th>
+                  <th>Type</th>
+                  <th>Status</th>
+                  <th>Accuracy</th>
+                  <th>Training Date</th>
+                  <th>Predictions</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Temperature Predictor v2.1</strong></td>
+                  <td>LSTM Neural Network</td>
+                  <td><span class="badge bg-success">Active</span></td>
+                  <td><strong class="text-success">96.3%</strong></td>
+                  <td>2025-01-08</td>
+                  <td>12,847</td>
+                  <td>
+                    <button class="btn btn-sm btn-outline-primary" onclick="viewModelDetails('temp')">Details</button>
+                    <button class="btn btn-sm btn-outline-warning" onclick="retrainModel('temperature')">Retrain</button>
+                  </td>
+                </tr>
+                <tr>
+                  <td><strong>NH₃ Anomaly Detector v1.5</strong></td>
+                  <td>Isolation Forest</td>
+                  <td><span class="badge bg-success">Active</span></td>
+                  <td><strong class="text-success">90.4%</strong></td>
+                  <td>2025-01-10</td>
+                  <td>8,234</td>
+                  <td>
+                    <button class="btn btn-sm btn-outline-primary" onclick="viewModelDetails('anomaly')">Details</button>
+                    <button class="btn btn-sm btn-outline-warning" onclick="retrainModel('anomaly')">Retrain</button>
+                  </td>
+                </tr>
+                <tr>
+                  <td><strong>Humidity Forecast v1.8</strong></td>
+                  <td>ARIMA</td>
+                  <td><span class="badge bg-success">Active</span></td>
+                  <td><strong class="text-success">93.7%</strong></td>
+                  <td>2025-01-07</td>
+                  <td>9,156</td>
+                  <td>
+                    <button class="btn btn-sm btn-outline-primary" onclick="viewModelDetails('humidity')">Details</button>
+                    <button class="btn btn-sm btn-outline-warning" onclick="retrainModel('humidity')">Retrain</button>
+                  </td>
+                </tr>
+                <tr>
+                  <td><strong>CO₂ Level Predictor v2.0</strong></td>
+                  <td>Random Forest</td>
+                  <td><span class="badge bg-success">Active</span></td>
+                  <td><strong class="text-success">91.2%</strong></td>
+                  <td>2025-01-09</td>
+                  <td>7,892</td>
+                  <td>
+                    <button class="btn btn-sm btn-outline-primary" onclick="viewModelDetails('co2')">Details</button>
+                    <button class="btn btn-sm btn-outline-warning" onclick="retrainModel('co2')">Retrain</button>
+                  </td>
+                </tr>
+                <tr>
+                  <td><strong>Optimal Conditions Optimizer v1.2</strong></td>
+                  <td>Gradient Boosting</td>
+                  <td><span class="badge bg-success">Active</span></td>
+                  <td><strong class="text-success">89.8%</strong></td>
+                  <td>2025-01-06</td>
+                  <td>5,431</td>
+                  <td>
+                    <button class="btn btn-sm btn-outline-primary" onclick="viewModelDetails('optimizer')">Details</button>
+                    <button class="btn btn-sm btn-outline-warning" onclick="retrainModel('optimizer')">Retrain</button>
+                  </td>
+                </tr>
+                <tr class="table-secondary">
+                  <td><strong>Temperature Predictor v2.0</strong></td>
+                  <td>LSTM Neural Network</td>
+                  <td><span class="badge bg-secondary">Archived</span></td>
+                  <td><strong class="text-muted">94.1%</strong></td>
+                  <td>2024-12-20</td>
+                  <td>45,231</td>
+                  <td>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="viewModelDetails('temp_old')">View</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Training History -->
+  <div class="row mb-4">
+    <div class="col-md-6 mb-3">
+      <div class="chart-container">
+        <h6 class="mb-3">Model Accuracy Over Time</h6>
+        <canvas id="accuracyHistoryChart"></canvas>
+      </div>
+    </div>
+    <div class="col-md-6 mb-3">
+      <div class="chart-container">
+        <h6 class="mb-3">Prediction Error Distribution</h6>
+        <canvas id="errorDistributionChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Feature Importance -->
+  <div class="row">
+    <div class="col-md-12">
+<div class="chart-container">
+        <h6 class="mb-3">Feature Importance - Temperature Model</h6>
+        <canvas id="featureImportanceChart"></canvas>
+        <p class="text-muted small mt-2 mb-0">Shows which input features are most important for predictions</p>
+      </div>
+</div>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<script>
+let tempPredictionChart, anomalyDetectionChart, accuracyHistoryChart, errorDistributionChart, featureImportanceChart;
+
+// Temperature Prediction Chart
+function initTempPredictionChart() {
+  const ctx = document.getElementById('tempPredictionChart');
+  const hours = Array.from({length: 12}, (_, i) => `+${(i+1)*2}h`);
+  const actual = Array.from({length: 6}, () => 23 + Math.random() * 2);
+  const predicted = Array.from({length: 12}, () => 23 + Math.random() * 2);
+  
+  tempPredictionChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: hours,
+      datasets: [
+        {
+          label: 'Actual',
+          data: actual.concat(Array(6).fill(null)),
+          borderColor: 'rgba(67, 160, 71, 1)',
+          backgroundColor: 'rgba(67, 160, 71, 0.1)',
+          borderWidth: 2,
+          borderDash: [],
+          tension: 0.4
+        },
+        {
+          label: 'Predicted',
+          data: Array(6).fill(null).concat(predicted),
+          borderColor: 'rgba(30, 136, 229, 1)',
+          backgroundColor: 'rgba(30, 136, 229, 0.1)',
+          borderWidth: 2,
+          borderDash: [5, 5],
+          tension: 0.4
+        },
+        {
+          label: 'Confidence Interval',
+          data: predicted.map(v => v + 0.5),
+          borderColor: 'rgba(30, 136, 229, 0.3)',
+          backgroundColor: 'rgba(30, 136, 229, 0.05)',
+          borderWidth: 1,
+          borderDash: [2, 2],
+          fill: '+1',
+          tension: 0.4
+        },
+        {
+          label: 'Lower Bound',
+          data: predicted.map(v => v - 0.5),
+          borderColor: 'rgba(30, 136, 229, 0.3)',
+          backgroundColor: 'rgba(30, 136, 229, 0.05)',
+          borderWidth: 1,
+          borderDash: [2, 2],
+          fill: false,
+          tension: 0.4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: true, position: 'bottom' }
+      },
+      scales: {
+        y: {
+          title: { display: true, text: 'Temperature (°C)' }
+        }
+      }
+    }
+  });
+}
+
+// Anomaly Detection Chart
+function initAnomalyDetectionChart() {
+  const ctx = document.getElementById('anomalyDetectionChart');
+  const hours = Array.from({length: 24}, (_, i) => `${i.toString().padStart(2, '0')}:00`);
+  const normal = Array.from({length: 24}, () => 2.8 + Math.random() * 0.6);
+  const anomalies = [null, null, null, null, 4.2, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null];
+  
+  anomalyDetectionChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: hours,
+      datasets: [
+        {
+          label: 'NH₃ Level',
+          data: normal,
+          borderColor: 'rgba(67, 160, 71, 0.5)',
+          backgroundColor: 'rgba(67, 160, 71, 0.1)',
+          tension: 0.4
+        },
+        {
+          label: 'Anomalies',
+          data: anomalies,
+          borderColor: 'rgba(229, 57, 53, 1)',
+          backgroundColor: 'rgba(229, 57, 53, 0.3)',
+          pointRadius: 8,
+          pointHoverRadius: 10,
+          tension: 0.4
+        },
+        {
+          label: 'Threshold',
+          data: Array(24).fill(4.0),
+          borderColor: 'rgba(255, 193, 7, 1)',
+          borderWidth: 2,
+          borderDash: [5, 5],
+          pointRadius: 0
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: true, position: 'bottom' }
+      },
+      scales: {
+        y: {
+          title: { display: true, text: 'NH₃ (ppm)' }
+        }
+      }
+    }
+  });
+}
+
+// Accuracy History Chart
+function initAccuracyHistoryChart() {
+  const ctx = document.getElementById('accuracyHistoryChart');
+  const dates = Array.from({length: 30}, (_, i) => {
+    const date = new Date();
+    date.setDate(date.getDate() - (29 - i));
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  });
+  
+  accuracyHistoryChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: dates,
+      datasets: [
+        {
+          label: 'Temperature Model',
+          data: Array.from({length: 30}, () => 94 + Math.random() * 3),
+          borderColor: 'rgba(67, 160, 71, 1)',
+          backgroundColor: 'rgba(67, 160, 71, 0.1)',
+          tension: 0.4,
+          fill: true
+        },
+        {
+          label: 'NH₃ Anomaly Model',
+          data: Array.from({length: 30}, () => 88 + Math.random() * 4),
+          borderColor: 'rgba(251, 140, 0, 1)',
+          backgroundColor: 'rgba(251, 140, 0, 0.1)',
+          tension: 0.4,
+          fill: true
+        },
+        {
+          label: 'Humidity Model',
+          data: Array.from({length: 30}, () => 91 + Math.random() * 3),
+          borderColor: 'rgba(30, 136, 229, 1)',
+          backgroundColor: 'rgba(30, 136, 229, 0.1)',
+          tension: 0.4,
+          fill: true
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'bottom' }
+      },
+      scales: {
+        y: {
+          min: 85,
+          max: 100,
+          title: { display: true, text: 'Accuracy (%)' }
+        }
+      }
+    }
+  });
+}
+
+// Error Distribution Chart
+function initErrorDistributionChart() {
+  const ctx = document.getElementById('errorDistributionChart');
+  
+  errorDistributionChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['-2.0', '-1.5', '-1.0', '-0.5', '0.0', '0.5', '1.0', '1.5', '2.0'],
+      datasets: [{
+        label: 'Error Frequency',
+        data: [5, 12, 45, 120, 280, 125, 48, 15, 6],
+        backgroundColor: 'rgba(30, 136, 229, 0.7)',
+        borderColor: 'rgba(30, 136, 229, 1)',
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: { display: true, text: 'Frequency' }
+        },
+        x: {
+          title: { display: true, text: 'Prediction Error (°C)' }
+        }
+      }
+    }
+  });
+}
+
+// Feature Importance Chart
+function initFeatureImportanceChart() {
+  const ctx = document.getElementById('featureImportanceChart');
+  
+  featureImportanceChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['Current Temp', 'Humidity', 'Time of Day', 'NH₃ Level', 'CO₂ Level', 'Historical Avg', 'Weather'],
+      datasets: [{
+        label: 'Importance Score',
+        data: [0.28, 0.22, 0.18, 0.12, 0.10, 0.06, 0.04],
+        backgroundColor: [
+          'rgba(67, 160, 71, 0.8)',
+          'rgba(30, 136, 229, 0.8)',
+          'rgba(251, 140, 0, 0.8)',
+          'rgba(229, 57, 53, 0.8)',
+          'rgba(156, 39, 176, 0.8)',
+          'rgba(0, 188, 212, 0.8)',
+          'rgba(121, 85, 72, 0.8)'
+        ]
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        x: {
+          beginAtZero: true,
+          max: 0.3,
+          title: { display: true, text: 'Importance' }
+        }
+      }
+    }
+  });
+}
+
+function updatePrediction(type, hours) {
+  if (type === 'temp') {
+    // Actualizar gráfico de predicción de temperatura
+    const newData = Array.from({length: hours/2}, () => 23 + Math.random() * 2);
+    tempPredictionChart.data.datasets[1].data = Array(6).fill(null).concat(newData);
+    tempPredictionChart.update();
+  }
+  
+  // Actualizar botones activos
+  event.target.parentElement.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+function retrainModel(modelType) {
+  if (confirm(`Are you sure you want to retrain the ${modelType} model? This may take several minutes.`)) {
+    alert(`Training job started for ${modelType} model. You will be notified when training is complete.`);
+  }
+}
+
+function viewModelDetails(modelType) {
+  alert(`Model Details: ${modelType}\n\nThis would show detailed model information, hyperparameters, training history, etc.`);
+}
+
+function trainNewModel() {
+  alert('This would open a dialog to configure and train a new ML model.');
+}
+
+function exportModels() {
+  alert('Exporting model data...');
+}
+
+// Inicialización
+document.addEventListener('DOMContentLoaded', function() {
+  initTempPredictionChart();
+  initAnomalyDetectionChart();
+  initAccuracyHistoryChart();
+  initErrorDistributionChart();
+  initFeatureImportanceChart();
+});
+
+</script>
+
+<style>
+.chart-container {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.card {
+  transition: transform 0.2s;
+}
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+@media (max-width: 768px) {
+  .chart-container {
+    padding: 15px;
+  }
+  
+  .table-responsive {
+    font-size: 0.85rem;
+  }
+  
+  .btn-group {
+    flex-wrap: wrap;
+  }
+  
+  .btn-group button {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .chart-container {
+    padding: 10px;
+  }
+  
+  h3 {
+    font-size: 1.3rem;
+  }
+  
+  .card h4 {
+    font-size: 1.2rem;
+  }
+  
+  .table {
+    font-size: 0.8rem;
+  }
+  
+  .table th,
+  .table td {
+    padding: 0.5rem 0.25rem;
+  }
+}
+</style>
+
+{% endblock %}

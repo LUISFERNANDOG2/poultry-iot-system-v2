@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Private keys, certificates, and tunnel credentials
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+.cloudflared/
+mosquitto/config/passwd
+
+# Logs, dumps, and backups
+*.log
+debug/
+backups/
+*.sql
+*.dump
+*.bak
+
+# Notebooks and generated data
+*.ipynb_checkpoints/
+ML/*.csv
+ML/*.xlsx
+ML/*.json
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*.swo

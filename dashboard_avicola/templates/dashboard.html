@@ -1,0 +1,183 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+  <div>
+    <h3 class="mb-1"><i class="bi bi-speedometer2 me-2"></i>Dashboard</h3>
+    <p class="text-muted mb-0 d-none d-md-block">Visualización de datos en tiempo real</p>
+  </div>
+</div>
+
+<div class="row mb-3 mt-2">
+  <div class="col-md-3">
+    <label class="form-label fw-bold">Módulo:</label>
+    <select class="form-select" id="moduleSelect">
+      <option value="M1">M1</option>
+      <option value="M2">M2</option>
+    </select>
+  </div>
+
+  <div class="col-md-8">
+    <div class="d-flex justify-content-between align-items-end mb-2">
+      <label class="form-label fw-bold mb-0">Rango:</label>
+      <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#thresholdsModal">
+        <i class="bi bi-gear"></i> Configurar Umbrales
+      </button>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2">
+      <select class="form-select" id="rangeSelect">
+        <option value="1m">Último minuto</option>
+        <option value="10m">Últimos 10 minutos</option>
+        <option value="30m">Últimos 30 minutos</option>
+        <option value="1h">Última hora</option>
+        <option value="2h">Últimas 2 horas</option>
+        <option value="12h">Últimas 12 horas</option>
+        <option value="24h" selected>Últimas 24 horas</option>
+        <option value="3d">Últimos 3 días</option>
+        <option value="7d">Últimos 7 días</option>
+        <option value="custom">Rango personalizado</option>
+      </select>
+
+      <div class="d-flex gap-2" id="customRangeContainer" style="display:none; width: 100%;">
+        <input type="datetime-local" id="fromDate" class="form-control" placeholder="Desde">
+        <input type="datetime-local" id="toDate" class="form-control" placeholder="Hasta">
+        <button class="btn btn-primary flex-shrink-0" id="applyRangeBtn" onclick="applyCustomRange()">Filtrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Thresholds Modal -->
+<div class="modal fade" id="thresholdsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Configurar Umbrales de Alerta</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="thresholdsForm">
+          <div class="table-responsive">
+            <table class="table table-bordered">
+              <thead>
+                <tr>
+                  <th>Variable</th>
+                  <th class="table-warning">Medio (Precaución)</th>
+                  <th class="table-danger">Alto (Peligro)</th>
+                  <th class="table-dark">Grave (Crítico)</th>
+                </tr>
+              </thead>
+              <tbody id="thresholdsTableBody">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="saveThresholds()">Guardar Cambios</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Sensor cards -->
+<div class="row text-center mb-3">
+  <div class="col-6 col-md mb-3">
+    <div class="card p-3">
+      <h5>Temperatura</h5>
+      <p id="temp" class="value">-- °C</p>
+    </div>
+  </div>
+
+  <div class="col-6 col-md mb-3">
+    <div class="card p-3">
+      <h5>Humedad</h5>
+      <p id="hum" class="value">-- %</p>
+    </div>
+  </div>
+
+  <div class="col-6 col-md mb-3">
+    <div class="card p-3">
+      <h5>Amoniaco</h5>
+      <p id="ammonia_raw" class="value mb-0">-- ADC</p>
+      <small id="ammonia_ppm" class="text-muted fw-bold" style="font-size: 0.9rem;">-- ppm (calc)</small>
+    </div>
+  </div>
+
+  <div class="col-6 col-md mb-3">
+    <div class="card p-3">
+      <h5>CO</h5>
+      <p id="co_raw" class="value mb-0">-- ADC</p>
+      <small id="co_ppm" class="text-muted fw-bold" style="font-size: 0.9rem;">-- ppm (calc)</small>
+    </div>
+  </div>
+
+  <div class="col-6 col-md mb-3">
+    <div class="card p-3">
+      <h5>CO₂</h5>
+      <p id="co2" class="value mb-0">-- ppm</p>
+      <small id="co2_info" class="text-muted fw-bold" style="font-size: 0.9rem;"></small>
+    </div>
+  </div>
+</div>
+
+<!-- Connection status -->
+<div class="row mb-4">
+  <div class="col-12">
+    <div class="alert alert-info text-center mb-0">
+      <div class="d-flex flex-column flex-md-row justify-content-center align-items-center gap-2">
+        <div>
+          <strong>Estado de Conexión: </strong>
+          <span id="lastUpdate"> </span>
+          <span id="lastUpdateTime" class="text-muted ms-2"></span>
+        </div>
+        <span id="connectionStatus" class="badge bg-success">Conectado</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts -->
+<div class="row g-4 mb-4">
+  <div class="col-md-6">
+    <div class="chart-container">
+      <h6 class="mb-3">Temperature</h6>
+      <canvas id="temperatureChart"></canvas>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="chart-container">
+      <h6 class="mb-3">Humidity</h6>
+      <canvas id="humidityChart"></canvas>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="chart-container">
+      <h6 class="mb-3">NH₃ (Sensor Raw Signal)</h6>
+      <canvas id="ammoniaChart"></canvas>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="chart-container">
+      <h6 class="mb-3">CO (Sensor Raw Signal)</h6>
+      <canvas id="coChart"></canvas>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="chart-container">
+      <h6 class="mb-3">CO₂</h6>
+      <canvas id="co2Chart"></canvas>
+    </div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/luxon.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/chartjs-adapter-luxon.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+
+{% endblock %}

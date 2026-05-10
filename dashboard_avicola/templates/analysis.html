@@ -1,0 +1,657 @@
+{% extends 'base.html' %}
+{% block title %}Analysis{% endblock %}
+{% block content %}
+
+
+  <!-- Header con filtros -->
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+    <div>
+      <h3 class="mb-1">📈 Advanced Analysis</h3>
+      <p class="text-muted mb-0 d-none d-md-block">Comprehensive data analysis and insights</p>
+    </div>
+    <div class="d-flex flex-column flex-sm-row gap-2 w-100 w-md-auto">
+      <select class="form-select form-select-sm" id="timeRange">
+        <option value="24h">Last 24 hours</option>
+        <option value="7d" selected>Last 7 days</option>
+        <option value="30d">Last 30 days</option>
+        <option value="90d">Last 90 days</option>
+      </select>
+      <select class="form-select form-select-sm" id="houseFilter">
+        <option value="all">All Houses</option>
+        <option value="house1">House 1</option>
+        <option value="house2">House 2</option>
+        <option value="house3">House 3</option>
+        <option value="house4">House 4</option>
+        <option value="house5">House 5</option>
+        <option value="house6">House 6</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="row mb-4">
+    <div class="col-md-3 mb-3">
+      <div class="card p-3 h-100">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <small class="text-muted d-block mb-1">Avg Temperature</small>
+            <h4 class="mb-0" id="avgTemp">23.4°C</h4>
+            <small class="text-success"><i class="bi bi-arrow-up"></i> +0.3°C</small>
+          </div>
+          <div class="bg-success bg-opacity-10 rounded-circle p-3">
+            <span style="font-size: 1.5rem;">🌡️</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="card p-3 h-100">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <small class="text-muted d-block mb-1">Avg Humidity</small>
+            <h4 class="mb-0" id="avgHum">54.2%</h4>
+            <small class="text-success"><i class="bi bi-arrow-up"></i> +1.2%</small>
+          </div>
+          <div class="bg-primary bg-opacity-10 rounded-circle p-3">
+            <span style="font-size: 1.5rem;">💧</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="card p-3 h-100">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <small class="text-muted d-block mb-1">Peak NH₃</small>
+            <h4 class="mb-0" id="peakNH3">3.8 ppm</h4>
+            <small class="text-warning"><i class="bi bi-exclamation-triangle"></i> Above avg</small>
+          </div>
+          <div class="bg-warning bg-opacity-10 rounded-circle p-3">
+            <span style="font-size: 1.5rem;">⚠️</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="card p-3 h-100">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <small class="text-muted d-block mb-1">Data Points</small>
+            <h4 class="mb-0" id="dataPoints">12,847</h4>
+            <small class="text-info">99.2% uptime</small>
+          </div>
+          <div class="bg-info bg-opacity-10 rounded-circle p-3">
+            <span style="font-size: 1.5rem;">📊</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gráficos principales -->
+  <div class="row mb-4">
+    <!-- Heatmap de correlación -->
+    <div class="col-md-6 mb-3">
+      <div class="chart-container">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h6 class="mb-0">Correlation Matrix</h6>
+          <button class="btn btn-sm btn-outline-secondary" onclick="exportChart('correlationChart')">Export</button>
+        </div>
+        <canvas id="correlationChart"></canvas>
+        <p class="text-muted small mt-2 mb-0">Shows relationships between environmental parameters</p>
+      </div>
+    </div>
+
+    <!-- Distribución de temperatura -->
+    <div class="col-md-6 mb-3">
+      <div class="chart-container">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h6 class="mb-0">Temperature Distribution</h6>
+          <button class="btn btn-sm btn-outline-secondary" onclick="exportChart('tempDistChart')">Export</button>
+        </div>
+        <canvas id="tempDistChart"></canvas>
+        <p class="text-muted small mt-2 mb-0">Histogram showing temperature frequency distribution</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Comparación por casa -->
+  <div class="row mb-4">
+    <div class="col-md-12 mb-3">
+      <div class="chart-container">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h6 class="mb-0">Multi-House Comparison</h6>
+          <div class="btn-group btn-group-sm" role="group">
+            <button type="button" class="btn btn-outline-primary active" onclick="switchComparison('temp')">Temperature</button>
+            <button type="button" class="btn btn-outline-primary" onclick="switchComparison('hum')">Humidity</button>
+            <button type="button" class="btn btn-outline-primary" onclick="switchComparison('nh3')">NH₃</button>
+            <button type="button" class="btn btn-outline-primary" onclick="switchComparison('co2')">CO₂</button>
+          </div>
+        </div>
+        <canvas id="comparisonChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Análisis de tendencias -->
+  <div class="row mb-4">
+    <div class="col-md-12 mb-3">
+      <div class="chart-container">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h6 class="mb-0">Trend Analysis - All Parameters</h6>
+          <div>
+            <button class="btn btn-sm btn-outline-primary" onclick="toggleTrendLines()">Toggle Trend Lines</button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="exportChart('trendChart')">Export</button>
+          </div>
+        </div>
+        <canvas id="trendChart"></canvas>
+        <div class="mt-3">
+          <div class="row text-center">
+            <div class="col-md-3">
+              <small class="text-muted d-block">Temp Trend</small>
+              <strong class="text-success" id="tempTrend">↗ Stable</strong>
+            </div>
+            <div class="col-md-3">
+              <small class="text-muted d-block">Humidity Trend</small>
+              <strong class="text-info" id="humTrend">↗ Increasing</strong>
+            </div>
+            <div class="col-md-3">
+              <small class="text-muted d-block">NH₃ Trend</small>
+              <strong class="text-warning" id="nh3Trend">↘ Decreasing</strong>
+            </div>
+            <div class="col-md-3">
+              <small class="text-muted d-block">CO₂ Trend</small>
+              <strong class="text-danger" id="co2Trend">→ Stable</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Estadísticas avanzadas -->
+  <div class="row mb-4">
+    <div class="col-md-6 mb-3">
+      <div class="chart-container">
+        <h6 class="mb-3">Statistical Summary</h6>
+        <div class="table-responsive">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>Parameter</th>
+                <th>Min</th>
+                <th>Max</th>
+                <th>Mean</th>
+                <th>Std Dev</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Temperature</strong></td>
+                <td>21.2°C</td>
+                <td>25.8°C</td>
+                <td>23.4°C</td>
+                <td>1.2°C</td>
+              </tr>
+              <tr>
+                <td><strong>Humidity</strong></td>
+                <td>48.5%</td>
+                <td>62.3%</td>
+                <td>54.2%</td>
+                <td>3.8%</td>
+              </tr>
+              <tr>
+                <td><strong>NH₃</strong></td>
+                <td>2.1 ppm</td>
+                <td>4.2 ppm</td>
+                <td>3.1 ppm</td>
+                <td>0.5 ppm</td>
+              </tr>
+              <tr>
+                <td><strong>CO₂</strong></td>
+                <td>850 ppm</td>
+                <td>1650 ppm</td>
+                <td>1120 ppm</td>
+                <td>180 ppm</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6 mb-3">
+      <div class="chart-container">
+        <h6 class="mb-3">Anomaly Detection</h6>
+        <canvas id="anomalyChart"></canvas>
+        <div class="mt-3">
+          <div class="alert alert-info mb-0">
+            <strong>3 anomalies detected</strong> in the selected period
+            <ul class="mb-0 mt-2">
+              <li>Temperature spike: House 3 at 14:32 (25.8°C)</li>
+              <li>NH₃ peak: House 2 at 08:15 (4.2 ppm)</li>
+              <li>CO₂ surge: House 5 at 19:45 (1650 ppm)</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Box plots -->
+  <div class="row mb-4">
+    <div class="col-md-12 mb-3">
+      <div class="chart-container">
+        <h6 class="mb-3">Parameter Distribution by House (Box Plot)</h6>
+        <canvas id="boxPlotChart"></canvas>
+        <p class="text-muted small mt-2 mb-0">Shows median, quartiles, and outliers for each house</p>
+      </div>
+    </div>
+  </div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-boxplot@4.1.0/dist/chartjs-chart-boxplot.min.js"></script>
+
+<script>
+let comparisonChart, trendChart, correlationChart, tempDistChart, anomalyChart, boxPlotChart;
+let showTrendLines = true;
+
+// Datos de ejemplo realistas
+const houses = ['House 1', 'House 2', 'House 3', 'House 4', 'House 5', 'House 6'];
+const hours = Array.from({length: 24}, (_, i) => `${i.toString().padStart(2, '0')}:00`);
+
+// Gráfico de correlación (Heatmap)
+function initCorrelationChart() {
+  const ctx = document.getElementById('correlationChart');
+  const correlationData = {
+    labels: ['Temperature', 'Humidity', 'NH₃', 'CO₂'],
+    datasets: [{
+      label: 'Correlation',
+      data: [
+        [1, 0.65, -0.32, 0.45],
+        [0.65, 1, -0.18, 0.52],
+        [-0.32, -0.18, 1, 0.78],
+        [0.45, 0.52, 0.78, 1]
+      ],
+      backgroundColor: function(context) {
+        const value = context.parsed.z || context.raw;
+        const alpha = Math.abs(value);
+        if (value > 0) return `rgba(67, 160, 71, ${alpha})`;
+        return `rgba(229, 57, 53, ${alpha})`;
+      }
+    }]
+  };
+  
+  correlationChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['Temp-Hum', 'Temp-NH₃', 'Temp-CO₂', 'Hum-NH₃', 'Hum-CO₂', 'NH₃-CO₂'],
+      datasets: [{
+        label: 'Correlation Coefficient',
+        data: [0.65, -0.32, 0.45, -0.18, 0.52, 0.78],
+        backgroundColor: function(context) {
+          const value = context.raw;
+          if (value > 0.5) return 'rgba(67, 160, 71, 0.7)';
+          if (value < -0.3) return 'rgba(229, 57, 53, 0.7)';
+          return 'rgba(255, 193, 7, 0.7)';
+        }
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              return `Correlation: ${context.raw.toFixed(2)}`;
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          min: -1,
+          max: 1,
+          ticks: {
+            callback: function(value) {
+              return value.toFixed(1);
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+// Distribución de temperatura
+function initTempDistChart() {
+  const ctx = document.getElementById('tempDistChart');
+  tempDistChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['20-21', '21-22', '22-23', '23-24', '24-25', '25-26', '26-27'],
+      datasets: [{
+        label: 'Frequency',
+        data: [45, 120, 280, 350, 240, 85, 15],
+        backgroundColor: 'rgba(67, 160, 71, 0.6)',
+        borderColor: 'rgba(67, 160, 71, 1)',
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        y: { beginAtZero: true }
+      }
+    }
+  });
+}
+
+// Comparación por casa
+function initComparisonChart() {
+  const ctx = document.getElementById('comparisonChart');
+  comparisonChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: houses,
+      datasets: [{
+        label: 'Temperature (°C)',
+        data: [23.1, 23.8, 22.9, 23.5, 24.2, 23.3],
+        backgroundColor: 'rgba(67, 160, 71, 0.7)',
+        borderColor: 'rgba(67, 160, 71, 1)',
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: true }
+      },
+      scales: {
+        y: { beginAtZero: false }
+      }
+    }
+  });
+}
+
+// Análisis de tendencias
+function initTrendChart() {
+  const ctx = document.getElementById('trendChart');
+  const tempData = Array.from({length: 24}, () => 23 + Math.random() * 2);
+  const humData = Array.from({length: 24}, () => 52 + Math.random() * 6);
+  const nh3Data = Array.from({length: 24}, () => 2.8 + Math.random() * 0.8);
+  const co2Data = Array.from({length: 24}, () => 1000 + Math.random() * 300);
+
+  trendChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: hours,
+      datasets: [
+        {
+          label: 'Temperature (°C)',
+          data: tempData,
+          borderColor: 'rgba(67, 160, 71, 1)',
+          backgroundColor: 'rgba(67, 160, 71, 0.1)',
+          tension: 0.4,
+          yAxisID: 'y'
+        },
+        {
+          label: 'Humidity (%)',
+          data: humData,
+          borderColor: 'rgba(30, 136, 229, 1)',
+          backgroundColor: 'rgba(30, 136, 229, 0.1)',
+          tension: 0.4,
+          yAxisID: 'y1'
+        },
+        {
+          label: 'NH₃ (ppm)',
+          data: nh3Data,
+          borderColor: 'rgba(251, 140, 0, 1)',
+          backgroundColor: 'rgba(251, 140, 0, 0.1)',
+          tension: 0.4,
+          yAxisID: 'y2'
+        },
+        {
+          label: 'CO₂ (ppm)',
+          data: co2Data,
+          borderColor: 'rgba(229, 57, 53, 1)',
+          backgroundColor: 'rgba(229, 57, 53, 0.1)',
+          tension: 0.4,
+          yAxisID: 'y3'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
+      scales: {
+        y: {
+          type: 'linear',
+          display: true,
+          position: 'left',
+          title: { display: true, text: 'Temperature (°C)' }
+        },
+        y1: {
+          type: 'linear',
+          display: true,
+          position: 'right',
+          title: { display: true, text: 'Humidity (%)' },
+          grid: { drawOnChartArea: false }
+        },
+        y2: {
+          type: 'linear',
+          display: false,
+          position: 'right'
+        },
+        y3: {
+          type: 'linear',
+          display: false,
+          position: 'right'
+        }
+      }
+    }
+  });
+}
+
+// Anomaly detection
+function initAnomalyChart() {
+  const ctx = document.getElementById('anomalyChart');
+  const normalData = Array.from({length: 24}, () => 23 + Math.random() * 2);
+  const anomalyIndices = [8, 14, 19];
+  anomalyIndices.forEach(idx => {
+    normalData[idx] += (Math.random() > 0.5 ? 1 : -1) * (2 + Math.random() * 1);
+  });
+
+  anomalyChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: hours,
+      datasets: [
+        {
+          label: 'Temperature',
+          data: normalData,
+          borderColor: 'rgba(67, 160, 71, 0.5)',
+          backgroundColor: 'rgba(67, 160, 71, 0.1)',
+          tension: 0.4
+        },
+        {
+          label: 'Anomalies',
+          data: normalData.map((val, idx) => anomalyIndices.includes(idx) ? val : null),
+          borderColor: 'rgba(229, 57, 53, 1)',
+          backgroundColor: 'rgba(229, 57, 53, 0.3)',
+          pointRadius: 8,
+          pointHoverRadius: 10,
+          tension: 0.4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: true }
+      }
+    }
+  });
+}
+
+// Box plot
+function initBoxPlotChart() {
+  const ctx = document.getElementById('boxPlotChart');
+  // Datos simulados para box plot
+  const boxPlotData = houses.map(() => {
+    const base = 23;
+    const values = Array.from({length: 50}, () => base + (Math.random() - 0.5) * 4);
+    return values;
+  });
+
+  boxPlotChart = new Chart(ctx, {
+    type: 'boxplot',
+    data: {
+      labels: houses,
+      datasets: [{
+        label: 'Temperature Distribution',
+        data: boxPlotData,
+        backgroundColor: 'rgba(67, 160, 71, 0.5)',
+        borderColor: 'rgba(67, 160, 71, 1)',
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false }
+      }
+    }
+  });
+}
+
+// Funciones de control
+function switchComparison(type) {
+  const data = {
+    temp: { label: 'Temperature (°C)', data: [23.1, 23.8, 22.9, 23.5, 24.2, 23.3], color: 'rgba(67, 160, 71, 0.7)' },
+    hum: { label: 'Humidity (%)', data: [53.2, 54.1, 52.8, 55.3, 56.2, 53.9], color: 'rgba(30, 136, 229, 0.7)' },
+    nh3: { label: 'NH₃ (ppm)', data: [3.1, 3.3, 2.9, 3.2, 3.5, 3.0], color: 'rgba(251, 140, 0, 0.7)' },
+    co2: { label: 'CO₂ (ppm)', data: [1100, 1150, 1080, 1120, 1200, 1090], color: 'rgba(229, 57, 53, 0.7)' }
+  };
+  
+  comparisonChart.data.datasets[0].label = data[type].label;
+  comparisonChart.data.datasets[0].data = data[type].data;
+  comparisonChart.data.datasets[0].backgroundColor = data[type].color;
+  comparisonChart.data.datasets[0].borderColor = data[type].color.replace('0.7', '1');
+  comparisonChart.update();
+  
+  // Actualizar botones activos
+  document.querySelectorAll('.btn-group button').forEach(btn => btn.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+function toggleTrendLines() {
+  showTrendLines = !showTrendLines;
+  trendChart.options.plugins.annotation = showTrendLines;
+  trendChart.update();
+}
+
+function exportChart(chartId) {
+  const canvas = document.getElementById(chartId);
+  const url = canvas.toDataURL('image/png');
+  const link = document.createElement('a');
+  link.download = `${chartId}_${new Date().toISOString().split('T')[0]}.png`;
+  link.href = url;
+  link.click();
+}
+
+// Inicialización
+document.addEventListener('DOMContentLoaded', function() {
+  initCorrelationChart();
+  initTempDistChart();
+  initComparisonChart();
+  initTrendChart();
+  initAnomalyChart();
+  initBoxPlotChart();
+  
+  // Actualizar datos cada 30 segundos
+  // Refresh data every 5 seconds
+  setInterval(() => {
+    // Aquí se actualizarían los datos desde la API
+    console.log('Refreshing analysis data...');
+  }, 30000);
+});
+
+</script>
+
+<style>
+.chart-container {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  transition: transform 0.2s;
+}
+.chart-container:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+.card {
+  transition: transform 0.2s;
+}
+.card:hover {
+  transform: translateY(-3px);
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .chart-container {
+    padding: 15px;
+  }
+  
+  .chart-container h6 {
+    font-size: 0.9rem;
+  }
+  
+  .table-responsive {
+    font-size: 0.85rem;
+  }
+  
+  .btn-group {
+    flex-wrap: wrap;
+  }
+  
+  .btn-group button {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .chart-container {
+    padding: 10px;
+  }
+  
+  h3 {
+    font-size: 1.3rem;
+  }
+  
+  .card h4 {
+    font-size: 1.2rem;
+  }
+  
+  .table {
+    font-size: 0.8rem;
+  }
+  
+  .table th,
+  .table td {
+    padding: 0.5rem 0.25rem;
+  }
+}
+</style>
+
+{% endblock %}

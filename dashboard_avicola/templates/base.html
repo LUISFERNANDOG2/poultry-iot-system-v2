@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Dashboard{% endblock %}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: #f5f6fa;
+      font-family: "Segoe UI", Arial, sans-serif;
+      overflow-x: hidden;
+    }
+
+    .topbar {
+      background-color: #2e7d32;
+      color: white;
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1001;
+      height: 60px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .sidebar-toggle {
+      display: none;
+      background: none;
+      border: none;
+      color: white;
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 5px 10px;
+      margin-right: 10px;
+    }
+
+    .sidebar {
+      background-color: #2e7d32;
+      color: white;
+      height: calc(100vh - 60px);
+      padding-top: 20px;
+      position: fixed;
+      width: 250px;
+      top: 60px;
+      left: 0;
+      transition: transform 0.3s ease;
+      z-index: 1000;
+      overflow-y: auto;
+      transform: translateX(0);
+    }
+
+    .sidebar.collapsed {
+      transform: translateX(-100%);
+    }
+
+    .sidebar a {
+      color: white;
+      text-decoration: none;
+      display: block;
+      padding: 12px 20px;
+      margin: 5px 10px;
+      border-radius: 8px;
+      transition: background-color 0.2s;
+    }
+
+    .sidebar a:hover,
+    .sidebar a.active {
+      background-color: #388e3c;
+    }
+
+    .content {
+      margin-left: 250px;
+      padding: 20px;
+      padding-top: 10px;
+      margin-top: 60px;
+      transition: margin-left 0.3s ease;
+      min-height: calc(100vh - 60px);
+      width: calc(100% - 250px);
+      max-width: 1600px;
+      margin-right: auto;
+    }
+
+    .content.expanded {
+      margin-left: 0;
+      width: 100%;
+      max-width: 100%;
+    }
+
+    @media (min-width: 1800px) {
+      .content {
+        margin-left: 250px !important;
+        max-width: 1800px;
+      }
+    }
+
+    @media (max-width: 992px) {
+      .sidebar-toggle {
+        display: block;
+      }
+
+      .sidebar {
+        transform: translateX(-100%);
+        box-shadow: none;
+      }
+
+      .sidebar.mobile-show {
+        transform: translateX(0) !important;
+        box-shadow: 4px 0 10px rgba(0, 0, 0, 0.2);
+      }
+
+      .content {
+        margin-left: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+
+      .content.expanded {
+        margin-left: 0;
+      }
+    }
+
+    /* User Profile Text Limits */
+    #userName {
+      max-width: 150px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    #userRole {
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      display: block;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="topbar">
+    <button class="sidebar-toggle" onclick="toggleSidebar()" aria-label="Toggle sidebar">
+      <i class="bi bi-list"></i>
+    </button>
+    <h5>Sustainable Poultry Farms Monitoring System</h5>
+    <span class="d-none d-md-inline">Last update: <strong id="lastUpdate">--</strong></span>
+  </div>
+
+  <div class="sidebar-overlay" onclick="closeSidebar()"
+    style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:999; background:rgba(0,0,0,0.5);"
+    id="overlay"></div>
+
+  <div class="sidebar" id="sidebar">
+    <div class="text-center mb-4 px-3">
+      <div class="rounded-circle bg-light text-dark mx-auto mb-2" id="userAvatar"
+        style="width:60px; height:60px; display:flex; justify-content:center; align-items:center; overflow:hidden;">
+        <strong id="userInitials">DG</strong>
+        <img id="userImage" src="" alt="Profile" style="width:100%; height:100%; object-fit:cover; display:none;">
+      </div>
+      <div class="d-flex align-items-center justify-content-start gap-1">
+        <button class="btn btn-link text-white" onclick="openProfileSettings()" title="Edit Profile"
+          style="font-size: 1.2rem; min-width: 48px; min-height: 48px; padding: 8px; display: flex; align-items: center; justify-content: center;">
+          <i class="bi bi-gear-fill"></i>
+        </button>
+        <div class="text-start">
+          <div id="userName" title="">Dr. Gustavo</div>
+          <small id="userRole" title="">Administrator</small>
+        </div>
+      </div>
+    </div>
+
+    <a href="/dashboard" class="{% if active=='dashboard' %}active{% endif %}"><i
+        class="bi bi-speedometer2 me-2"></i>Dashboard</a>
+    <a href="/historical" class="{% if active=='historical' %}active{% endif %}"><i
+        class="bi bi-clock-history me-2"></i>Historical Data</a>
+
+    <a href="/alerts" class="{% if active=='alerts' %}active{% endif %}"><i
+        class="bi bi-exclamation-triangle me-2"></i>Alerts</a>
+
+    <!-- <a href="/analysis" class="{% if active=='analysis' %}active{% endif %}"><i
+        class="bi bi-graph-up me-2"></i>Analysis</a>
+    <a href="/devices" class="{% if active=='devices' %}active{% endif %}"><i class="bi bi-devices me-2"></i>Devices</a>
+    <a href="/ml_models" class="{% if active=='ml_models' %}active{% endif %}"><i class="bi bi-robot me-2"></i>ML
+      Models</a>
+    <a href="/reports" class="{% if active=='reports' %}active{% endif %}"><i
+        class="bi bi-file-earmark-text me-2"></i>Reports</a>
+    -->
+  </div>
+
+  <div class="content" id="content">
+    {% block content %}{% endblock %}
+  </div>
+
+  <!-- Profile Settings Modal -->
+  <div class="modal fade" id="profileModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content text-dark">
+        <div class="modal-header">
+          <h5 class="modal-title">Edit Profile</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Name</label>
+            <input type="text" class="form-control" id="editName" value="Dr. Gustavo" maxlength="50">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Role</label>
+            <input type="text" class="form-control" id="editRole" value="Administrator" maxlength="30">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Initials</label>
+            <input type="text" class="form-control" id="editInitials" value="DG" maxlength="3">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-primary" onclick="saveProfile()">Save changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    // DEBUG: Check if user_data is passed from Flask
+    console.log('User data from Flask:', {{ user_data|tojson|safe }});
+    
+    // Initialize user data from Flask template with fallback
+    {% if user_data %}
+    console.log('Setting user_data to localStorage:', {{ user_data|tojson|safe }});
+    localStorage.setItem('currentUser', JSON.stringify({{ user_data|tojson|safe }}));
+    {% else %}
+    console.log('No user_data received from Flask, using fallback');
+    // Fallback: Create default user data for testing
+    const fallbackUser = {
+        id: 1,
+        username: 'admin',
+        full_name: 'Administrator',
+        role: 'Administrator',
+        initials: 'AD',
+        profile_image_url: null
+    };
+    localStorage.setItem('currentUser', JSON.stringify(fallbackUser));
+    {% endif %}
+
+    document.getElementById("lastUpdate").innerText = new Date().toLocaleString();
+    const overlay = document.getElementById('overlay');
+
+    function isMobile() {
+      return window.innerWidth <= 992;
+    }
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const content = document.getElementById('content');
+
+      if (isMobile()) {
+        sidebar.classList.toggle('mobile-show');
+        if (sidebar.classList.contains('mobile-show')) {
+          if (overlay) overlay.style.display = 'block';
+        } else {
+          if (overlay) overlay.style.display = 'none';
+        }
+      } else {
+        sidebar.classList.toggle('collapsed');
+        content.classList.toggle('expanded');
+      }
+    }
+
+    function closeSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      if (isMobile()) {
+        sidebar.classList.remove('mobile-show');
+        if (overlay) overlay.style.display = 'none';
+      } else {
+        sidebar.classList.add('collapsed');
+        document.getElementById('content').classList.add('expanded');
+      }
+    }
+
+    // AUTH & PROFILE LOGIC
+    let currentUser = null;
+
+    function getBaseUrl() {
+      const currentPort = window.location.port;
+      if (currentPort === '5001') {
+        return `${window.location.protocol}//${window.location.hostname}:5000`;
+      }
+      return window.location.origin;
+    }
+
+    function loadUserProfile() {
+      console.log('Loading user profile');
+      const userStr = localStorage.getItem('currentUser');
+      console.log('User string from localStorage:', userStr);
+      
+      if (userStr) {
+        currentUser = JSON.parse(userStr);
+        console.log('Parsed currentUser:', currentUser);
+        updateProfileUI(currentUser);
+      } else {
+        console.log('No user found in localStorage');
+      }
+    }
+
+    function updateProfileUI(user) {
+      const fullName = user.full_name || user.username;
+      const role = user.role || 'User';
+
+      document.getElementById('userName').innerText = fullName;
+      document.getElementById('userName').title = fullName;
+      document.getElementById('userRole').innerText = role;
+      document.getElementById('userRole').title = role;
+
+      const initialsEl = document.getElementById('userInitials');
+      const imageEl = document.getElementById('userImage');
+
+      if (user.profile_image_url) {
+        imageEl.src = user.profile_image_url;
+        imageEl.style.display = 'block';
+        initialsEl.style.display = 'none';
+      } else {
+        initialsEl.innerText = user.initials || user.username.substring(0, 2).toUpperCase();
+        initialsEl.style.display = 'block';
+        imageEl.style.display = 'none';
+      }
+    }
+
+    function openProfileSettings() {
+      console.log('openProfileSettings called');
+      console.log('currentUser:', currentUser);
+      
+      if (!currentUser) {
+        console.log('No currentUser found');
+        return;
+      }
+      
+      console.log('Opening profile modal');
+      document.getElementById('editName').value = currentUser.full_name || '';
+      document.getElementById('editRole').value = currentUser.role || '';
+      document.getElementById('editInitials').value = currentUser.initials || '';
+
+      const modal = new bootstrap.Modal(document.getElementById('profileModal'));
+      modal.show();
+    }
+
+    async function saveProfile() {
+      if (!currentUser) return;
+
+      const updates = {
+        full_name: document.getElementById('editName').value,
+        role: document.getElementById('editRole').value,
+        initials: document.getElementById('editInitials').value
+      };
+
+      try {
+        const res = await fetch(`${getBaseUrl()}/api/user/${currentUser.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates)
+        });
+
+        if (res.ok) {
+          currentUser = { ...currentUser, ...updates };
+          localStorage.setItem('currentUser', JSON.stringify(currentUser));
+          updateProfileUI(currentUser);
+
+          const modalEl = document.getElementById('profileModal');
+          const modal = bootstrap.Modal.getInstance(modalEl);
+          modal.hide();
+        } else {
+          alert('Error updating profile');
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Connection error');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      loadUserProfile();
+
+      const sidebarLinks = document.querySelectorAll('.sidebar a');
+      sidebarLinks.forEach(link => {
+        link.addEventListener('click', function () {
+          if (isMobile()) {
+            closeSidebar();
+          }
+        });
+      });
+    });
+
+    window.addEventListener('resize', function () {
+      const sidebar = document.getElementById('sidebar');
+      if (isMobile()) {
+        sidebar.classList.remove('collapsed');
+        sidebar.classList.remove('mobile-show');
+        if (overlay) overlay.style.display = 'none';
+      } else {
+        sidebar.classList.remove('mobile-show');
+        if (overlay) overlay.style.display = 'none';
+      }
+    });
+  </script>
+
+</body>
+
+</html>

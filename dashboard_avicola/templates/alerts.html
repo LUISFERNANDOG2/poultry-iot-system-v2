@@ -1,0 +1,538 @@
+{% extends 'base.html' %}
+{% block title %}Alertas{% endblock %}
+
+{% block content %}
+
+<!-- Encabezado -->
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+  <div>
+    <h3 class="mb-1"><i class="bi bi-exclamation-triangle me-2"></i>Alertas</h3>
+    <p class="text-muted mb-0 d-none d-md-block">Alertas generadas cuando los valores superan los umbrales configurados
+    </p>
+  </div>
+  <div class="d-flex flex-column flex-sm-row gap-2 w-100 w-md-auto">
+    <button class="btn btn-primary btn-sm" onclick="markAllAsRead()">
+      <i class="bi bi-check-lg me-1"></i>Marcar todas como vistas
+    </button>
+    <button class="btn btn-danger btn-sm" onclick="deleteAllAlerts()">
+      <i class="bi bi-trash me-1"></i>Eliminar todas
+    </button>
+    <button class="btn btn-outline-secondary btn-sm" onclick="exportAlerts()">
+      <i class="bi bi-download me-1"></i>Exportar
+    </button>
+  </div>
+</div>
+
+<!-- Resumen de alertas -->
+
+<div class="row mb-4">
+  <div class="col-md-3 mb-3">
+    <div class="card p-3 border-start border-danger border-4">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <small class="text-muted d-block mb-1">Alertas críticas</small>
+
+          <h4 class="mb-0 text-danger" id="criticalCount">0</h4>
+          <small class="text-danger">Requieren atención inmediata</small>
+
+        </div>
+        <div class="bg-danger bg-opacity-10 rounded-circle p-3">
+          <i class="bi bi-exclamation-circle-fill text-danger" style="font-size: 1.5rem;"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 mb-3">
+    <div class="card p-3 border-start border-warning border-4">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <small class="text-muted d-block mb-1">Alertas altas</small>
+
+          <h4 class="mb-0 text-warning" id="warningCount">0</h4>
+          <small class="text-warning">Requieren atención</small>
+
+        </div>
+        <div class="bg-warning bg-opacity-10 rounded-circle p-3">
+          <i class="bi bi-exclamation-triangle-fill text-warning" style="font-size: 1.5rem;"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 mb-3">
+    <div class="card p-3 border-start border-success border-4">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <small class="text-muted d-block mb-1">Resueltas</small>
+
+          <h4 class="mb-0 text-success" id="resolvedCount">0</h4>
+          <small class="text-success">Últimas 24 horas</small>
+
+        </div>
+        <div class="bg-success bg-opacity-10 rounded-circle p-3">
+          <i class="bi bi-check-circle-fill text-success" style="font-size: 1.5rem;"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 mb-3">
+    <div class="card p-3 border-start border-primary border-4">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <small class="text-muted d-block mb-1">Total de alertas</small>
+
+          <h4 class="mb-0 text-primary" id="totalCount">0</h4>
+          <small class="text-primary">Histórico</small>
+
+        </div>
+        <div class="bg-primary bg-opacity-10 rounded-circle p-3">
+          <i class="bi bi-bar-chart-fill text-primary" style="font-size: 1.5rem;"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Filtros -->
+
+<div class="card mb-4">
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-3">
+        <label class="form-label small fw-bold">Prioridad</label>
+
+        <select class="form-select form-select-sm" id="priorityFilter">
+          <option value="all">Todas</option>
+          <option value="critical">Críticas</option>
+          <option value="warning">Altas</option>
+
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small fw-bold">Estado</label>
+
+        <select class="form-select form-select-sm" id="statusFilter">
+          <option value="all">Todos</option>
+          <option value="active">Activas</option>
+          <option value="acknowledged">Vistas</option>
+          <option value="resolved">Resueltas</option>
+
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small fw-bold">Módulo</label>
+
+        <select class="form-select form-select-sm" id="moduleFilter">
+          <option value="all">Todos</option>
+          <option value="M1">Módulo 1</option>
+          <option value="M2">Módulo 2</option>
+          <option value="M3">Módulo 3</option>
+          <option value="M4">Módulo 4</option>
+
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small fw-bold">Búsqueda</label>
+        <input type="text" class="form-control form-control-sm" id="searchInput" placeholder="Buscar alertas...">
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Lista de alertas -->
+
+<div class="card">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <h6 class="mb-0">Alertas</h6>
+
+    <div class="d-flex gap-2 align-items-center">
+      <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" id="autoRefresh" checked>
+        <label class="form-check-label small" for="autoRefresh">Auto-actualizar</label>
+
+      </div>
+      <button class="btn btn-sm btn-outline-primary" onclick="refreshAlerts()">
+        <i class="bi bi-arrow-clockwise me-1"></i>Actualizar
+      </button>
+
+    </div>
+  </div>
+  <div class="card-body p-0">
+    <div id="alertsList">
+      <!-- Alerts will be loaded here -->
+    </div>
+  </div>
+</div>
+
+<script>
+  let allAlerts = [];
+  let filteredAlerts = [];
+
+  // Load alerts from API
+  async function loadAlerts() {
+    try {
+      const priority = document.getElementById('priorityFilter').value;
+      const status = document.getElementById('statusFilter').value;
+      const module = document.getElementById('moduleFilter').value;
+
+      let url = `${window.location.protocol}//${window.location.hostname}:5000/api/alerts`;
+      const params = new URLSearchParams();
+      if (priority !== 'all') params.append('priority', priority);
+      if (status !== 'all') params.append('status', status);
+      if (module !== 'all') params.append('modulo', module);
+
+      if (params.toString()) url += '?' + params.toString();
+
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to load alerts');
+
+      allAlerts = await response.json();
+      // Convert timestamp strings to Date objects
+      allAlerts.forEach(alert => {
+        alert.timestamp = new Date(alert.timestamp);
+        if (alert.timestamp_resuelto) {
+          alert.timestamp_resuelto = new Date(alert.timestamp_resuelto);
+        }
+      });
+
+      filterAlerts();
+      updateCounts();
+
+    } catch (error) {
+      console.error('Error loading alerts:', error);
+      document.getElementById('alertsList').innerHTML =
+        '<div class="text-center p-5 text-danger">Error loading alerts: ' + error.message + '</div>';
+    }
+  }
+
+  // Load alert statistics
+  async function loadStats() {
+    try {
+      const response = await fetch(`${window.location.protocol}//${window.location.hostname}:5000/api/alerts/stats`);
+      if (!response.ok) throw new Error('Failed to load stats');
+
+      const stats = await response.json();
+      document.getElementById('criticalCount').textContent = stats.critical || 0;
+      document.getElementById('warningCount').textContent = stats.warning || 0;
+      document.getElementById('resolvedCount').textContent = stats.resolved || 0;
+      document.getElementById('totalCount').textContent = (stats.critical || 0) + (stats.warning || 0) + (stats.resolved || 0);
+
+    } catch (error) {
+      console.error('Error loading stats:', error);
+    }
+  }
+
+  // Update alert status
+  async function updateAlertStatus(id, status) {
+    try {
+      const response = await fetch(`${window.location.protocol}//${window.location.hostname}:5000/api/alerts/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado: status })
+      });
+
+      if (!response.ok) throw new Error('Failed to update alert');
+
+      loadAlerts();
+      loadStats();
+
+    } catch (error) {
+      console.error('Error updating alert:', error);
+      alert('Error updating alert: ' + error.message);
+    }
+  }
+
+  // Mark all as acknowledged
+  async function markAllAsRead() {
+    try {
+      const response = await fetch(`${window.location.protocol}//${window.location.hostname}:5000/api/alerts/mark-all`, {
+        method: 'PUT'
+      });
+
+      if (!response.ok) throw new Error('Failed to mark all alerts');
+
+      loadAlerts();
+      loadStats();
+
+    } catch (error) {
+      console.error('Error marking all alerts:', error);
+      alert('Error marking all alerts: ' + error.message);
+    }
+  }
+
+  // Get priority badge
+  function getPriorityBadge(priority) {
+    const badges = {
+      critical: '<span class="badge bg-danger">Crítica</span>',
+      warning: '<span class="badge bg-warning text-dark">Alta</span>'
+    };
+    return badges[priority] || '';
+  }
+
+  // Get status badge
+  function getStatusBadge(status) {
+    const badges = {
+      active: '<span class="badge bg-danger">Activa</span>',
+      acknowledged: '<span class="badge bg-warning text-dark">Vista</span>',
+      resolved: '<span class="badge bg-success">Resuelta</span>'
+    };
+    return badges[status] || '';
+  }
+
+  // Format timestamp
+  function formatTimestamp(date) {
+    return date.toLocaleString('es-MX', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  }
+
+  // Format time ago
+  function formatTimeAgo(timestamp) {
+    const now = new Date();
+    const diff = now - timestamp;
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (minutes < 1) return 'Justo ahora';
+    if (minutes < 60) return `${minutes} min`;
+    if (hours < 24) return `${hours} h`;
+    return `${days} d`;
+  }
+
+  // Render alerts
+  function renderAlerts(alertsToRender) {
+    const container = document.getElementById('alertsList');
+    if (alertsToRender.length === 0) {
+      container.innerHTML = '<div class="text-center p-5 text-muted">No hay alertas</div>';
+
+      return;
+    }
+
+    container.innerHTML = alertsToRender.map(alert => {
+      const priorityColors = {
+        critical: 'border-danger',
+        warning: 'border-warning'
+      };
+      const bgColors = {
+        critical: 'bg-danger bg-opacity-10',
+        warning: 'bg-warning bg-opacity-10'
+      };
+
+      return `
+      <div class="alert-item border-start ${priorityColors[alert.prioridad]} border-4 p-3 mb-2 ${bgColors[alert.prioridad]}" 
+           data-id="${alert.id}" data-priority="${alert.prioridad}" data-status="${alert.estado}" data-module="${alert.modulo}">
+        <div class="d-flex justify-content-between align-items-start">
+          <div class="flex-grow-1">
+            <div class="d-flex align-items-center gap-2 mb-2">
+              ${getPriorityBadge(alert.prioridad)}
+              ${getStatusBadge(alert.estado)}
+              <strong>${alert.tipo.charAt(0).toUpperCase() + alert.tipo.slice(1)}</strong>
+              <span class="text-muted">•</span>
+              <span class="text-muted">${alert.modulo}</span>
+
+            </div>
+            <p class="mb-2">${alert.mensaje}</p>
+            <div class="small text-muted">
+              <span><strong>Valor actual:</strong> ${alert.valor_actual || 'N/A'}</span>
+              <span class="ms-3"><strong>Umbral:</strong> ${alert.umbral || 'N/A'}</span>
+              <span class="ms-3"><strong>Sensor:</strong> ${alert.sensor || 'N/A'}</span>
+
+            </div>
+            <div class="small text-muted mt-1">
+              <span>${formatTimeAgo(alert.timestamp)}</span>
+              <span class="ms-2">${formatTimestamp(alert.timestamp)}</span>
+            </div>
+          </div>
+          <div class="d-flex gap-2">
+            ${alert.estado === 'active' ? `
+              <button class="btn btn-sm btn-outline-primary" onclick="acknowledgeAlert(${alert.id})">
+                ✓ Marcar vista
+              </button>
+              <button class="btn btn-sm btn-outline-success" onclick="resolveAlert(${alert.id})">
+                ✓ Marcar resuelta
+              </button>
+            ` : ''}
+            ${alert.estado === 'acknowledged' ? `
+              <button class="btn btn-sm btn-outline-success" onclick="resolveAlert(${alert.id})">
+                ✓ Marcar resuelta
+              </button>
+            ` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+    }).join('');
+  }
+
+  // Filter alerts
+  function filterAlerts() {
+    const priority = document.getElementById('priorityFilter').value;
+    const status = document.getElementById('statusFilter').value;
+    const module = document.getElementById('moduleFilter').value;
+    const search = document.getElementById('searchInput').value.toLowerCase();
+
+    filteredAlerts = allAlerts.filter(alert => {
+      if (priority !== 'all' && alert.prioridad !== priority) return false;
+      if (status !== 'all' && alert.estado !== status) return false;
+      if (module !== 'all' && alert.modulo !== module) return false;
+      if (search && !alert.mensaje.toLowerCase().includes(search) &&
+        !alert.tipo.toLowerCase().includes(search) &&
+        !alert.modulo.toLowerCase().includes(search)) return false;
+      return true;
+    });
+
+    renderAlerts(filteredAlerts);
+  }
+
+  // Update counts
+  function updateCounts() {
+    const critical = allAlerts.filter(a => a.prioridad === 'critical' && a.estado !== 'resolved').length;
+    const warning = allAlerts.filter(a => a.prioridad === 'warning' && a.estado !== 'resolved').length;
+    const resolved = allAlerts.filter(a => a.estado === 'resolved').length;
+    const total = allAlerts.length;
+
+    document.getElementById('criticalCount').textContent = critical;
+    document.getElementById('warningCount').textContent = warning;
+    document.getElementById('resolvedCount').textContent = resolved;
+    document.getElementById('totalCount').textContent = total;
+  }
+
+  // Acknowledge alert
+  function acknowledgeAlert(id) {
+    updateAlertStatus(id, 'acknowledged');
+  }
+
+  // Resolve alert
+  function resolveAlert(id) {
+    updateAlertStatus(id, 'resolved');
+  }
+
+  // Refresh alerts
+  function refreshAlerts() {
+    loadAlerts();
+    loadStats();
+  }
+
+  // Export alerts
+  function exportAlerts() {
+    const dataStr = JSON.stringify(filteredAlerts, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `alerts_${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Initialize
+  document.addEventListener('DOMContentLoaded', function () {
+    loadAlerts();
+    loadStats();
+
+    // Event listeners
+    document.getElementById('priorityFilter').addEventListener('change', filterAlerts);
+    document.getElementById('statusFilter').addEventListener('change', filterAlerts);
+    document.getElementById('moduleFilter').addEventListener('change', filterAlerts);
+    document.getElementById('searchInput').addEventListener('input', filterAlerts);
+
+    // Auto-refresh
+    // Poll for alerts every 5 seconds (matches firmware)
+    setInterval(() => {
+      if (document.getElementById('autoRefresh').checked) {
+        loadAlerts();
+        loadStats();
+      }
+    }, 30000);
+  });
+
+  // Delete all alerts
+  async function deleteAllAlerts() {
+    if (!confirm('¿Estás seguro de que deseas eliminar TODAS las alertas? Esta acción no se puede deshacer.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${window.location.protocol}//${window.location.hostname}:5000/api/alerts/all`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) throw new Error('Failed to delete all alerts');
+
+      const result = await response.json();
+      // alert(result.message || 'Alertas eliminadas correctamente'); // Optional: show success message
+
+      loadAlerts();
+      loadStats();
+
+    } catch (error) {
+      console.error('Error deleting all alerts:', error);
+      alert('Error deleting alerts: ' + error.message);
+    }
+  }
+</script>
+
+<style>
+  .alert-item {
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+
+  .alert-item:hover {
+    transform: translateX(5px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .chart-container {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  @media (max-width: 768px) {
+    .alert-item {
+      padding: 10px !important;
+    }
+
+    .alert-item .d-flex {
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .alert-item .d-flex>div:last-child {
+      width: 100%;
+    }
+
+    .alert-item .btn {
+      width: 100%;
+      margin-bottom: 5px;
+    }
+
+    .chart-container {
+      padding: 15px;
+    }
+  }
+
+  @media (max-width: 576px) {
+    .alert-item {
+      font-size: 0.9rem;
+    }
+
+    .card h4 {
+      font-size: 1.2rem;
+    }
+
+    .chart-container {
+      padding: 10px;
+    }
+  }
+</style>
+
+{% endblock %}

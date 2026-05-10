@@ -1,0 +1,56 @@
+/* Dashboard Styles */
+.value{font-size:1.8rem;font-weight:bold;}
+.card{transition:0.2s;}
+.card:hover{transform:translateY(-2px);}
+.chart-container{background:#fff;padding:15px;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.1);}
+
+/* Custom range container */
+#customRangeContainer {
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+#customRangeContainer input {
+  flex: 1;
+  min-width: 200px;
+}
+
+#customRangeContainer button {
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .value {
+    font-size: 1.5rem;
+  }
+  
+  .chart-container {
+    padding: 12px;
+  }
+  
+  .d-flex.gap-2 {
+    flex-direction: column;
+  }
+  
+  .d-flex.gap-2 > * {
+    width: 100%;
+  }
+}
+
+@media (max-width: 576px) {
+  .value {
+    font-size: 1.3rem;
+  }
+  
+  .chart-container {
+    padding: 10px;
+  }
+  
+  h5 {
+    font-size: 1rem;
+  }
+  
+  .card h5 {
+    font-size: 0.9rem;
+  }
+}

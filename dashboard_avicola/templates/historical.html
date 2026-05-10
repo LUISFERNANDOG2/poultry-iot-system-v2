@@ -1,0 +1,718 @@
+{% extends 'base.html' %}
+{% block title %}Datos Históricos{% endblock %}
+
+{% block content %}
+
+<!-- Encabezado -->
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+  <div>
+    <h3 class="mb-1"><i class="bi bi-clock-history me-2"></i>Datos Históricos</h3>
+    <p class="text-muted mb-0 d-none d-md-block">Explora y analiza los registros históricos de los sensores</p>
+  </div>
+  <div class="d-flex flex-column flex-sm-row gap-2 w-100 w-md-auto">
+    <button class="btn btn-primary btn-sm" onclick="refreshData()">
+      <i class="bi bi-arrow-clockwise me-1"></i>Actualizar
+    </button>
+    <button class="btn btn-outline-secondary btn-sm" onclick="exportData()">
+      <i class="bi bi-download me-1"></i>Exportar
+    </button>
+  </div>
+</div>
+
+<!-- Filtros -->
+<div class="card mb-4">
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-3">
+        <label class="form-label small fw-bold">Módulo</label>
+        <select class="form-select form-select-sm" id="houseSelect">
+          <option value="all">Todos los módulos</option>
+          <option value="M1" selected>Módulo 1</option>
+          <option value="M2">Módulo 2</option>
+          <option value="M3">Módulo 3</option>
+          <option value="M4">Módulo 4</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small fw-bold">Rango</label>
+        <select class="form-select form-select-sm" id="dateRange">
+          <option value="24h">Últimas 24 horas</option>
+          <option value="7d">Últimos 7 días</option>
+          <option value="30d" selected>Últimos 30 días</option>
+          <option value="90d">Últimos 90 días</option>
+          <option value="custom">Rango personalizado</option>
+        </select>
+      </div>
+      <div class="col-md-3" style="display: none;">
+        <select class="form-select form-select-sm" id="parameterFilter">
+          <option value="all" selected>Todos los parámetros</option>
+          <option value="temperature">Temperatura</option>
+          <option value="humidity">Humedad</option>
+          <option value="nh3">NH3</option>
+          <option value="co2">CO2</option>
+        </select>
+      </div>
+    </div>
+    <div class="row g-3 mt-2" id="customDateRange" style="display: none;">
+      <div class="col-md-6">
+        <label class="form-label small fw-bold">Desde</label>
+        <input type="datetime-local" class="form-control form-control-sm" id="fromDate">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label small fw-bold">Hasta</label>
+        <input type="datetime-local" class="form-control form-control-sm" id="toDate">
+      </div>
+    </div>
+    <div class="row g-3 mt-2">
+      <div class="col-md-12">
+        <label class="form-label small fw-bold">Búsqueda</label>
+        <input type="text" class="form-control form-control-sm" id="searchInput" placeholder="Buscar en los datos...">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tarjetas de resumen -->
+<div class="row mb-4">
+  <div class="col-md-3 mb-3">
+    <div class="card p-3 border-start border-primary border-4">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <small class="text-muted d-block mb-1">Total de registros</small>
+          <h4 class="mb-0 text-primary" id="totalRecords">12,847</h4>
+          <small class="text-primary">En el rango seleccionado</small>
+        </div>
+        <div class="bg-primary bg-opacity-10 rounded-circle p-3">
+          <i class="bi bi-database-fill text-primary" style="font-size: 1.5rem;"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-md-3 mb-3">
+    <div class="card p-3 border-start border-warning border-4">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <small class="text-muted d-block mb-1">Anomalías</small>
+          <h4 class="mb-0 text-warning" id="anomalies">23</h4>
+          <small class="text-warning">Detectadas</small>
+        </div>
+        <div class="bg-warning bg-opacity-10 rounded-circle p-3">
+          <i class="bi bi-exclamation-triangle-fill text-warning" style="font-size: 1.5rem;"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tabla de datos -->
+<div class="card mb-4">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <h6 class="mb-0">Registros históricos</h6>
+    <div class="d-flex gap-2 align-items-center">
+      <small class="text-muted">Mostrando <span id="showingCount">50</span> de <span id="totalCount">12,847</span>
+        registros</small>
+      <select class="form-select form-select-sm" id="pageSize" style="width: auto;">
+        <option value="25">25 por página</option>
+        <option value="50" selected>50 por página</option>
+        <option value="100">100 por página</option>
+        <option value="200">200 por página</option>
+      </select>
+    </div>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+      <table class="table table-hover table-striped mb-0">
+        <thead class="table-light sticky-top">
+          <tr>
+            <th style="cursor: pointer;" onclick="sortTable('timestamp')">
+              Fecha y hora <span id="sort-timestamp">↕</span>
+            </th>
+            <th style="cursor: pointer;" onclick="sortTable('house')">
+              Módulo <span id="sort-house">↕</span>
+            </th>
+            <th style="cursor: pointer;" onclick="sortTable('temperature')">
+              Temperatura (°C) <span id="sort-temperature">↕</span>
+            </th>
+            <th style="cursor: pointer;" onclick="sortTable('humidity')">
+              Humedad (%) <span id="sort-humidity">↕</span>
+            </th>
+            <th style="cursor: pointer;" onclick="sortTable('nh3')">
+              NH3 (ADC) <span id="sort-nh3">↕</span>
+            </th>
+            <th style="cursor: pointer;" onclick="sortTable('co2')">
+              CO2 (ppm) <span id="sort-co2">↕</span>
+            </th>
+            <th style="cursor: pointer;" onclick="sortTable('co')">
+              CO (ADC) <span id="sort-co">↕</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody id="dataTableBody">
+          <!-- Los datos se cargarán aquí -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card-footer bg-white">
+    <nav aria-label="Page navigation">
+      <ul class="pagination pagination-sm mb-0 justify-content-center" id="pagination">
+        <!-- La paginación se generará aquí -->
+      </ul>
+    </nav>
+  </div>
+</div>
+
+<!-- Leyenda de colores para estados por variable -->
+<div class="mb-3 small">
+  <span class="legend-box status-normal"></span> Normal
+  <span class="ms-3 legend-box status-high"></span> Alto (peligro)
+  <span class="ms-3 legend-box status-critical"></span> Crítico
+</div>
+
+<!-- Gráfico rápido -->
+<div class="row">
+  <div class="col-md-12">
+    <div class="chart-container">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="mb-0">Visualización de datos</h6>
+        <div class="btn-group btn-group-sm" role="group">
+          <button type="button" class="btn btn-outline-primary active" data-param="temperature"
+            onclick="switchChart(this.dataset.param)">Temperatura</button>
+          <button type="button" class="btn btn-outline-primary" data-param="humidity"
+            onclick="switchChart(this.dataset.param)">Humedad</button>
+          <button type="button" class="btn btn-outline-primary" data-param="nh3"
+            onclick="switchChart(this.dataset.param)">NH3</button>
+          <button type="button" class="btn btn-outline-primary" data-param="co2"
+            onclick="switchChart(this.dataset.param)">CO2</button>
+          <button type="button" class="btn btn-outline-primary" data-param="co"
+            onclick="switchChart(this.dataset.param)">CO</button>
+        </div>
+      </div>
+      <canvas id="dataChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<script>
+  let dataChart;
+  let currentPage = 1;
+  let pageSize = 50;
+  let sortColumn = 'timestamp';
+  let sortDirection = 'desc';
+  let allData = [];
+  let filteredData = [];
+  let thresholds = {};
+
+  // Fetch thresholds from API
+  async function loadThresholds() {
+    try {
+      const res = await fetch('/api/umbrales');
+      if (res.ok) {
+        const data = await res.json();
+        data.forEach(t => {
+          thresholds[t.variable] = t;
+        });
+        console.log('Thresholds loaded:', thresholds);
+      }
+    } catch (err) {
+      console.error('Error loading thresholds:', err);
+    }
+  }
+
+  // Obtener clase CSS para una celda según umbral de la variable
+  function getCellClass(type, value) {
+    if (value === null || value === undefined) return '';
+    const t = thresholds[type];
+    if (!t) return '';
+
+    if (value >= t.valor_grave) return 'status-critical';
+    if (value >= t.valor_alto) return 'status-high';
+    return 'status-normal';
+  }
+
+  async function loadData() {
+    const house = document.getElementById('houseSelect').value;
+    const range = document.getElementById('dateRange').value;
+    const parameter = document.getElementById('parameterFilter').value;
+    let url = `${window.location.protocol}//${window.location.hostname}:5000/api/historical?range=${range}`;
+
+    if (house !== 'all') url += `&house=${house}`;
+    if (parameter !== 'all') url += `&parameter=${parameter}`;
+
+    if (range === 'custom') {
+      const from = document.getElementById('fromDate').value;
+      const to = document.getElementById('toDate').value;
+      if (!from || !to) return; // Wait for both dates
+      url += `&from=${from}&to=${to}`;
+    }
+
+    // Show loading state
+    document.getElementById('dataTableBody').innerHTML = '<tr><td colspan="7" class="text-center">Loading data...</td></tr>';
+
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Failed to fetch data');
+
+      const data = await res.json();
+
+      if (data.error) throw new Error(data.error);
+
+      // Transform parallel arrays to objects
+      allData = data.timestamps.map((ts, i) => {
+        const row = {
+          timestamp: new Date(ts),
+          house: data.house ? data.house[i] : 'Unknown',
+          temperature: data.temperature[i],
+          humidity: data.humidity[i],
+          nh3: data.ammonia[i],
+          co2: data.co2[i],
+          co: data.co ? data.co[i] : 0
+        };
+        return row;
+      });
+
+      // Sort by timestamp desc by default
+      allData.sort((a, b) => b.timestamp - a.timestamp);
+
+      filterData(); // Apply client-side filters (search) and render
+
+    } catch (err) {
+      console.error('Error loading data:', err);
+      document.getElementById('dataTableBody').innerHTML = `<tr><td colspan="7" class="text-center text-danger">Error: ${err.message}</td></tr>`;
+    }
+  }
+
+  function formatTimestamp(date) {
+    return date.toLocaleString('es-MX', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  }
+
+  function renderTable() {
+    const start = (currentPage - 1) * pageSize;
+    const end = start + pageSize;
+    const pageData = filteredData.slice(start, end);
+
+    const tbody = document.getElementById('dataTableBody');
+    if (pageData.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center">No se encontraron registros</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = pageData.map(row => `
+    <tr>
+      <td>${formatTimestamp(row.timestamp)}</td>
+      <td>${row.house}</td>
+      <td class="${row.temperature != null ? getCellClass('temperatura', row.temperature) : 'status-empty'}">${row.temperature != null ? row.temperature.toFixed(1) : '-'}</td>
+      <td class="${row.humidity != null ? getCellClass('humedad', row.humidity) : 'status-empty'}">${row.humidity != null ? row.humidity.toFixed(1) : '-'}</td>
+      <td class="${row.nh3 != null ? getCellClass('amoniaco', row.nh3) : 'status-empty'}">${row.nh3 != null ? row.nh3.toFixed(2) : '-'}</td>
+      <td class="${row.co2 != null ? getCellClass('co2', row.co2) : 'status-empty'}">${row.co2 != null ? row.co2.toFixed(0) : '-'}</td>
+      <td class="${row.co != null ? getCellClass('co', row.co) : 'status-empty'}">${row.co != null ? row.co.toFixed(2) : '-'}</td>
+    </tr>
+  `).join('');
+
+    updatePagination();
+    updateCounts();
+  }
+
+  function updatePagination() {
+    const totalPages = Math.ceil(filteredData.length / pageSize);
+    const pagination = document.getElementById('pagination');
+
+    let html = '';
+
+    // Previous button
+    html += `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+    <a class="page-link" href="#" onclick="changePage(${currentPage - 1}); return false;">Anterior</a>
+  </li>`;
+
+    // Page numbers logic (simplified)
+    const maxPages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxPages / 2));
+    let endPage = Math.min(totalPages, startPage + maxPages - 1);
+
+    if (endPage - startPage < maxPages - 1) {
+      startPage = Math.max(1, endPage - maxPages + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      html += `<li class="page-item ${i === currentPage ? 'active' : ''}">
+      <a class="page-link" href="#" onclick="changePage(${i}); return false;">${i}</a>
+    </li>`;
+    }
+
+    // Next button
+    html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+    <a class="page-link" href="#" onclick="changePage(${currentPage + 1}); return false;">Siguiente</a>
+  </li>`;
+
+    pagination.innerHTML = html;
+  }
+
+  function changePage(page) {
+    const totalPages = Math.ceil(filteredData.length / pageSize);
+    if (page >= 1 && page <= totalPages) {
+      currentPage = page;
+      renderTable();
+      document.querySelector('.table-responsive').scrollTop = 0;
+    }
+  }
+
+  function sortTable(column) {
+    if (sortColumn === column) {
+      sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      sortColumn = column;
+      sortDirection = 'asc';
+    }
+
+    // Reset sort indicators
+    document.querySelectorAll('[id^="sort-"]').forEach(el => {
+      el.textContent = '↕';
+    });
+
+    // Update current sort indicator
+    const indicator = document.getElementById(`sort-${column}`);
+    if (indicator) indicator.textContent = sortDirection === 'asc' ? '↑' : '↓';
+
+    filteredData.sort((a, b) => {
+      let aVal = a[column];
+      let bVal = b[column];
+
+      if (column === 'timestamp') {
+        aVal = a.timestamp.getTime();
+        bVal = b.timestamp.getTime();
+      } else {
+        aVal = parseFloat(aVal || 0);
+        bVal = parseFloat(bVal || 0);
+      }
+
+      if (sortDirection === 'asc') {
+        return aVal > bVal ? 1 : -1;
+      } else {
+        return aVal < bVal ? 1 : -1;
+      }
+    });
+
+    currentPage = 1;
+    renderTable();
+  }
+
+  function filterData() {
+    const search = document.getElementById('searchInput').value.toLowerCase();
+
+    // Filter by search text (other filters are handled by API)
+    filteredData = allData.filter(row => {
+      if (search) {
+        const searchStr = `${row.house} ${row.temperature} ${row.humidity} ${row.nh3} ${row.co2} ${row.co}`.toLowerCase();
+        if (!searchStr.includes(search)) return false;
+      }
+      return true;
+    });
+
+    currentPage = 1;
+    renderTable();
+    updateChart();
+  }
+
+  function updateCounts() {
+    document.getElementById('totalRecords').textContent = filteredData.length.toLocaleString();
+    document.getElementById('showingCount').textContent = Math.min(pageSize, filteredData.length - (currentPage - 1) * pageSize);
+    document.getElementById('totalCount').textContent = filteredData.length.toLocaleString();
+
+    if (filteredData.length > 0) {
+      // Anomalías (Crítico + Alto)
+      const anomalies = filteredData.filter(r => getCellClass('temperatura', r.temperature) === 'status-critical' || getCellClass('humedad', r.humidity) === 'status-critical' || getCellClass('amoniaco', r.nh3) === 'status-critical' || getCellClass('co2', r.co2) === 'status-critical' || getCellClass('co', r.co) === 'status-critical').length;
+      document.getElementById('anomalies').textContent = anomalies;
+    } else {
+      document.getElementById('anomalies').textContent = '0';
+    }
+  }
+
+  function updateChart() {
+    // Limit chart to 100 points for performance
+    const chartData = filteredData.slice(0, 100).reverse();
+    const labels = chartData.map(r => formatTimestamp(r.timestamp));
+
+    // Determinar parámetro activo a partir del botón activo
+    const activeBtn = document.querySelector('.btn-group .active');
+    const parameter = activeBtn ? (activeBtn.dataset.param || 'temperature') : 'temperature';
+
+    let data, color;
+
+    // Mapear parámetro al campo de datos
+    let key = 'temperature'; // por defecto
+    if (parameter === 'temperature') { key = 'temperature'; color = 'rgba(67, 160, 71, 1)'; }
+    else if (parameter === 'humidity') { key = 'humidity'; color = 'rgba(30, 136, 229, 1)'; }
+    else if (parameter === 'nh3') { key = 'nh3'; color = 'rgba(251, 140, 0, 1)'; }
+    else if (parameter === 'co2') { key = 'co2'; color = 'rgba(229, 57, 53, 1)'; }
+    else if (parameter === 'co') { key = 'co'; color = 'rgba(0, 0, 0, 1)'; }
+
+    // Color de respaldo por si algo falla
+    if (!color) {
+      color = 'rgba(67, 160, 71, 1)';
+    }
+
+    data = chartData.map(r => r[key]);
+
+    dataChart.data.labels = labels;
+    dataChart.data.datasets[0].data = data;
+    dataChart.data.datasets[0].label = key.charAt(0).toUpperCase() + key.slice(1);
+    dataChart.data.datasets[0].borderColor = color;
+    dataChart.data.datasets[0].backgroundColor = color.replace('1)', '0.1)');
+    dataChart.update();
+  }
+
+  function switchChart(param) {
+    // Actualizar botón activo usando data-param
+    document.querySelectorAll('.btn-group button').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.param === param);
+    });
+    updateChart();
+  }
+
+  function initChart() {
+    const ctx = document.getElementById('dataChart');
+    dataChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Temperature',
+          data: [],
+          borderColor: 'rgba(67, 160, 71, 1)',
+          backgroundColor: 'rgba(67, 160, 71, 0.1)',
+          tension: 0.4,
+          fill: true
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: true }
+        },
+        scales: {
+          x: {
+            ticks: { maxRotation: 45, minRotation: 45 }
+          }
+        }
+      }
+    });
+  }
+
+  function refreshData() {
+    loadData();
+  }
+
+  function exportData() {
+    // Get current filter values for filename
+    const house = document.getElementById('houseSelect').value;
+    const range = document.getElementById('dateRange').value;
+    const fromDate = document.getElementById('fromDate').value;
+    const toDate = document.getElementById('toDate').value;
+    
+    // Generate filename based on filters
+    let filename = 'historical_data';
+    if (house !== 'all') filename += `_${house}`;
+    if (range === 'custom' && fromDate && toDate) {
+      filename += `_${fromDate.split('T')[0]}_to_${toDate.split('T')[0]}`;
+    } else if (range !== 'custom') {
+      filename += `_${range}`;
+    }
+    filename += `_${new Date().toISOString().split('T')[0]}.csv`;
+    
+    // Create CSV with proper formatting
+    const csv = [
+      ['FechaHora', 'Módulo', 'Temperatura (°C)', 'Humedad (%)', 'NH3 (ppm)', 'CO2 (ppm)', 'CO (ppm)', 'Estado'].join(','),
+      ...filteredData.map(row => [
+        `"${row.timestamp.toISOString()}"`,
+        `"${row.house}"`,
+        row.temperature != null ? row.temperature.toFixed(1) : '',
+        row.humidity != null ? row.humidity.toFixed(1) : '',
+        row.nh3 != null ? row.nh3.toFixed(2) : '',
+        row.co2 != null ? row.co2.toFixed(0) : '',
+        row.co != null ? row.co.toFixed(2) : '',
+        `"${row.status}"`
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url); // Clean up
+  }
+
+  // Initialization
+  document.addEventListener('DOMContentLoaded', async function () {
+    initChart();
+    await loadThresholds();
+    loadData();
+
+    // Event listeners
+    document.getElementById('houseSelect').addEventListener('change', loadData);
+    document.getElementById('parameterFilter').addEventListener('change', loadData);
+    document.getElementById('dateRange').addEventListener('change', function () {
+      document.getElementById('customDateRange').style.display =
+        this.value === 'custom' ? 'flex' : 'none';
+      if (this.value !== 'custom') loadData();
+    });
+    document.getElementById('fromDate').addEventListener('change', loadData);
+    document.getElementById('toDate').addEventListener('change', loadData);
+
+    document.getElementById('searchInput').addEventListener('input', filterData);
+    document.getElementById('pageSize').addEventListener('change', function () {
+      pageSize = parseInt(this.value);
+      currentPage = 1;
+      renderTable();
+    });
+  });
+</script>
+
+<style>
+  .chart-container {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .table-responsive {
+    border-radius: 0.375rem;
+  }
+
+  .sticky-top {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  @media (max-width: 768px) {
+    .chart-container {
+      padding: 15px;
+    }
+
+    .table-responsive {
+      font-size: 0.85rem;
+    }
+
+    .table th,
+    .table td {
+      padding: 0.5rem;
+    }
+
+    .pagination {
+      font-size: 0.85rem;
+    }
+
+    .pagination .page-link {
+      padding: 0.25rem 0.5rem;
+    }
+
+    .btn-group {
+      flex-wrap: wrap;
+    }
+
+    .btn-group button {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.5rem;
+    }
+  }
+
+  @media (max-width: 576px) {
+    .chart-container {
+      padding: 10px;
+    }
+
+    h3 {
+      font-size: 1.3rem;
+    }
+
+    .card h4 {
+      font-size: 1.2rem;
+    }
+
+    .table {
+      font-size: 0.75rem;
+    }
+
+    .table th,
+    .table td {
+      padding: 0.4rem 0.25rem;
+    }
+
+    .table th {
+      font-size: 0.7rem;
+    }
+
+    .pagination {
+      font-size: 0.75rem;
+    }
+
+    .pagination .page-link {
+      padding: 0.2rem 0.4rem;
+    }
+  }
+
+  /* Estilos para estados por variable (tabla y leyenda) */
+  .legend-box {
+    display: inline-block;
+    width: 16px;
+    height: 10px;
+    border-radius: 4px;
+    margin-right: 4px;
+  }
+
+  .status-normal {
+    background-color: #28a745; /* verde fuerte */
+    color: #fff;
+  }
+
+  .status-high {
+    background-color: #ffc107; /* amarillo intenso */
+    color: #212529;
+  }
+
+  .status-critical {
+    background-color: #dc3545; /* rojo fuerte */
+    color: #fff;
+  }
+
+  /* Asegurar que los colores de estado dominen sobre el striping de Bootstrap */
+  .table td.status-normal {
+    background-color: #28a745 !important;
+    color: #fff;
+    font-weight: 600;
+  }
+
+  .table td.status-high {
+    background-color: #ffc107 !important;
+    color: #212529;
+    font-weight: 600;
+  }
+
+  .table td.status-critical {
+    background-color: #dc3545 !important;
+    color: #fff;
+    font-weight: 600;
+  }
+
+  /* Celdas sin dato ("-") en gris neutro */
+  .table td.status-empty {
+    background-color: #e9ecef !important; /* gris claro bootstrap-like */
+    color: #6c757d;
+    font-style: italic;
+  }
+</style>
+
+{% endblock %}
