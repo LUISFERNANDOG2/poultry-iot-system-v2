@@ -89,7 +89,29 @@ class Alerta(db.Model):
     timestamp_resuelto = db.Column(db.DateTime)
     sensor = db.Column(db.String(100))
 
-# Create tables if they don't exist 
+class Granja(db.Model):
+    __tablename__ = 'granjas'
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(100), unique=True, nullable=False)
+    ubicacion = db.Column(db.String(200))
+    naves = db.relationship('Nave', backref='granja', lazy=True)
+
+class Nave(db.Model):
+    __tablename__ = 'naves'
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(100), nullable=False)
+    fecha_inicio_parvada = db.Column(db.Date, nullable=True)
+    granja_id = db.Column(db.Integer, db.ForeignKey('granjas.id'), nullable=False)
+    modulos = db.relationship('Modulo', backref='nave', lazy=True)
+
+class Modulo(db.Model):
+    __tablename__ = 'modulos'
+    id = db.Column(db.Integer, primary_key=True)
+    codigo = db.Column(db.String(20), unique=True, nullable=False)
+    nombre = db.Column(db.String(100))
+    nave_id = db.Column(db.Integer, db.ForeignKey('naves.id'), nullable=True)
+
+# Create tables if they don't exist
 with app.app_context():
     db.create_all()
 
