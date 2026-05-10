@@ -6,15 +6,15 @@
 <!-- Encabezado -->
 <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
   <div>
-    <h3 class="mb-1"><i class="bi bi-clock-history me-2"></i>Datos Históricos</h3>
-    <p class="text-muted mb-0 d-none d-md-block">Explora y analiza los registros históricos de los sensores</p>
+    <h3 class="mb-1"><i class="bi bi-clock-history me-2"></i><span data-i18n="historical.title">Datos Históricos</span></h3>
+    <p class="text-muted mb-0 d-none d-md-block" data-i18n="historical.subtitle">Explora y analiza los registros históricos de los sensores</p>
   </div>
   <div class="d-flex flex-column flex-sm-row gap-2 w-100 w-md-auto">
     <button class="btn btn-primary btn-sm" onclick="refreshData()">
-      <i class="bi bi-arrow-clockwise me-1"></i>Actualizar
+      <i class="bi bi-arrow-clockwise me-1"></i><span data-i18n="historical.btn_refresh">Actualizar</span>
     </button>
     <button class="btn btn-outline-secondary btn-sm" onclick="exportData()">
-      <i class="bi bi-download me-1"></i>Exportar
+      <i class="bi bi-download me-1"></i><span data-i18n="historical.btn_export">Exportar</span>
     </button>
   </div>
 </div>
@@ -24,23 +24,23 @@
   <div class="card-body">
     <div class="row g-3">
       <div class="col-md-3">
-        <label class="form-label small fw-bold">Módulo</label>
+        <label class="form-label small fw-bold" data-i18n="historical.filter_module">Módulo</label>
         <select class="form-select form-select-sm" id="houseSelect">
-          <option value="all">Todos los módulos</option>
-          <option value="M1" selected>Módulo 1</option>
-          <option value="M2">Módulo 2</option>
-          <option value="M3">Módulo 3</option>
-          <option value="M4">Módulo 4</option>
+          <option value="all" data-i18n="historical.opt_all">Todos los módulos</option>
+          <option value="M1" selected>M1</option>
+          <option value="M2">M2</option>
+          <option value="M3">M3</option>
+          <option value="M4">M4</option>
         </select>
       </div>
       <div class="col-md-3">
-        <label class="form-label small fw-bold">Rango</label>
+        <label class="form-label small fw-bold" data-i18n="historical.filter_range">Rango</label>
         <select class="form-select form-select-sm" id="dateRange">
-          <option value="24h">Últimas 24 horas</option>
-          <option value="7d">Últimos 7 días</option>
-          <option value="30d" selected>Últimos 30 días</option>
-          <option value="90d">Últimos 90 días</option>
-          <option value="custom">Rango personalizado</option>
+          <option value="24h" data-i18n="historical.range_24h">Últimas 24 horas</option>
+          <option value="7d"  data-i18n="historical.range_7d">Últimos 7 días</option>
+          <option value="30d" selected data-i18n="historical.range_30d">Últimos 30 días</option>
+          <option value="90d" data-i18n="historical.range_90d">Últimos 90 días</option>
+          <option value="custom" data-i18n="historical.range_custom">Rango personalizado</option>
         </select>
       </div>
       <div class="col-md-3" style="display: none;">
@@ -55,18 +55,19 @@
     </div>
     <div class="row g-3 mt-2" id="customDateRange" style="display: none;">
       <div class="col-md-6">
-        <label class="form-label small fw-bold">Desde</label>
+        <label class="form-label small fw-bold" data-i18n="historical.lbl_from">Desde</label>
         <input type="datetime-local" class="form-control form-control-sm" id="fromDate">
       </div>
       <div class="col-md-6">
-        <label class="form-label small fw-bold">Hasta</label>
+        <label class="form-label small fw-bold" data-i18n="historical.lbl_to">Hasta</label>
         <input type="datetime-local" class="form-control form-control-sm" id="toDate">
       </div>
     </div>
     <div class="row g-3 mt-2">
       <div class="col-md-12">
-        <label class="form-label small fw-bold">Búsqueda</label>
-        <input type="text" class="form-control form-control-sm" id="searchInput" placeholder="Buscar en los datos...">
+        <label class="form-label small fw-bold" data-i18n="historical.filter_search">Búsqueda</label>
+        <input type="text" class="form-control form-control-sm" id="searchInput"
+               data-i18n-ph="historical.ph_search" placeholder="Buscar en los datos...">
       </div>
     </div>
   </div>
@@ -78,9 +79,9 @@
     <div class="card p-3 border-start border-primary border-4">
       <div class="d-flex justify-content-between align-items-center">
         <div>
-          <small class="text-muted d-block mb-1">Total de registros</small>
-          <h4 class="mb-0 text-primary" id="totalRecords">12,847</h4>
-          <small class="text-primary">En el rango seleccionado</small>
+          <small class="text-muted d-block mb-1" data-i18n="historical.card_total">Total de registros</small>
+          <h4 class="mb-0 text-primary" id="totalRecords">0</h4>
+          <small class="text-primary" data-i18n="historical.card_total_desc">En el rango seleccionado</small>
         </div>
         <div class="bg-primary bg-opacity-10 rounded-circle p-3">
           <i class="bi bi-database-fill text-primary" style="font-size: 1.5rem;"></i>
@@ -93,9 +94,9 @@
     <div class="card p-3 border-start border-warning border-4">
       <div class="d-flex justify-content-between align-items-center">
         <div>
-          <small class="text-muted d-block mb-1">Anomalías</small>
-          <h4 class="mb-0 text-warning" id="anomalies">23</h4>
-          <small class="text-warning">Detectadas</small>
+          <small class="text-muted d-block mb-1" data-i18n="historical.card_anomalies">Anomalías</small>
+          <h4 class="mb-0 text-warning" id="anomalies">0</h4>
+          <small class="text-warning" data-i18n="historical.card_anomalies_desc">Detectadas</small>
         </div>
         <div class="bg-warning bg-opacity-10 rounded-circle p-3">
           <i class="bi bi-exclamation-triangle-fill text-warning" style="font-size: 1.5rem;"></i>
@@ -108,15 +109,20 @@
 <!-- Tabla de datos -->
 <div class="card mb-4">
   <div class="card-header bg-white d-flex justify-content-between align-items-center">
-    <h6 class="mb-0">Registros históricos</h6>
+    <h6 class="mb-0" data-i18n="historical.table_header">Registros históricos</h6>
     <div class="d-flex gap-2 align-items-center">
-      <small class="text-muted">Mostrando <span id="showingCount">50</span> de <span id="totalCount">12,847</span>
-        registros</small>
+      <small class="text-muted">
+        <span data-i18n="historical.showing">Mostrando</span>
+        <span id="showingCount">0</span>
+        <span data-i18n="historical.of">de</span>
+        <span id="totalCount">0</span>
+        <span data-i18n="historical.records">registros</span>
+      </small>
       <select class="form-select form-select-sm" id="pageSize" style="width: auto;">
-        <option value="25">25 por página</option>
-        <option value="50" selected>50 por página</option>
-        <option value="100">100 por página</option>
-        <option value="200">200 por página</option>
+        <option value="25"  data-i18n="historical.page_25">25 por página</option>
+        <option value="50"  selected data-i18n="historical.page_50">50 por página</option>
+        <option value="100" data-i18n="historical.page_100">100 por página</option>
+        <option value="200" data-i18n="historical.page_200">200 por página</option>
       </select>
     </div>
   </div>
@@ -125,27 +131,13 @@
       <table class="table table-hover table-striped mb-0">
         <thead class="table-light sticky-top">
           <tr>
-            <th style="cursor: pointer;" onclick="sortTable('timestamp')">
-              Fecha y hora <span id="sort-timestamp">↕</span>
-            </th>
-            <th style="cursor: pointer;" onclick="sortTable('house')">
-              Módulo <span id="sort-house">↕</span>
-            </th>
-            <th style="cursor: pointer;" onclick="sortTable('temperature')">
-              Temperatura (°C) <span id="sort-temperature">↕</span>
-            </th>
-            <th style="cursor: pointer;" onclick="sortTable('humidity')">
-              Humedad (%) <span id="sort-humidity">↕</span>
-            </th>
-            <th style="cursor: pointer;" onclick="sortTable('nh3')">
-              NH3 (ADC) <span id="sort-nh3">↕</span>
-            </th>
-            <th style="cursor: pointer;" onclick="sortTable('co2')">
-              CO2 (ppm) <span id="sort-co2">↕</span>
-            </th>
-            <th style="cursor: pointer;" onclick="sortTable('co')">
-              CO (ADC) <span id="sort-co">↕</span>
-            </th>
+            <th style="cursor:pointer;" onclick="sortTable('timestamp')"><span data-i18n="historical.col_datetime">Fecha y hora</span> <span id="sort-timestamp">↕</span></th>
+            <th style="cursor:pointer;" onclick="sortTable('house')"><span data-i18n="historical.col_module">Módulo</span> <span id="sort-house">↕</span></th>
+            <th style="cursor:pointer;" onclick="sortTable('temperature')"><span data-i18n="historical.col_temp">Temperatura (°C)</span> <span id="sort-temperature">↕</span></th>
+            <th style="cursor:pointer;" onclick="sortTable('humidity')"><span data-i18n="historical.col_hum">Humedad (%)</span> <span id="sort-humidity">↕</span></th>
+            <th style="cursor:pointer;" onclick="sortTable('nh3')"><span data-i18n="historical.col_nh3">NH3 (ADC)</span> <span id="sort-nh3">↕</span></th>
+            <th style="cursor:pointer;" onclick="sortTable('co2')"><span data-i18n="historical.col_co2">CO2 (ppm)</span> <span id="sort-co2">↕</span></th>
+            <th style="cursor:pointer;" onclick="sortTable('co')"><span data-i18n="historical.col_co">CO (ADC)</span> <span id="sort-co">↕</span></th>
           </tr>
         </thead>
         <tbody id="dataTableBody">
@@ -165,9 +157,9 @@
 
 <!-- Leyenda de colores para estados por variable -->
 <div class="mb-3 small">
-  <span class="legend-box status-normal"></span> Normal
-  <span class="ms-3 legend-box status-high"></span> Alto (peligro)
-  <span class="ms-3 legend-box status-critical"></span> Crítico
+  <span class="legend-box status-normal"></span> <span data-i18n="historical.legend_normal">Normal</span>
+  <span class="ms-3 legend-box status-high"></span> <span data-i18n="historical.legend_high">Alto (peligro)</span>
+  <span class="ms-3 legend-box status-critical"></span> <span data-i18n="historical.legend_critical">Crítico</span>
 </div>
 
 <!-- Gráfico rápido -->
@@ -175,18 +167,13 @@
   <div class="col-md-12">
     <div class="chart-container">
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <h6 class="mb-0">Visualización de datos</h6>
+        <h6 class="mb-0" data-i18n="historical.chart_header">Visualización de datos</h6>
         <div class="btn-group btn-group-sm" role="group">
-          <button type="button" class="btn btn-outline-primary active" data-param="temperature"
-            onclick="switchChart(this.dataset.param)">Temperatura</button>
-          <button type="button" class="btn btn-outline-primary" data-param="humidity"
-            onclick="switchChart(this.dataset.param)">Humedad</button>
-          <button type="button" class="btn btn-outline-primary" data-param="nh3"
-            onclick="switchChart(this.dataset.param)">NH3</button>
-          <button type="button" class="btn btn-outline-primary" data-param="co2"
-            onclick="switchChart(this.dataset.param)">CO2</button>
-          <button type="button" class="btn btn-outline-primary" data-param="co"
-            onclick="switchChart(this.dataset.param)">CO</button>
+          <button type="button" class="btn btn-outline-primary active" data-param="temperature" onclick="switchChart(this.dataset.param)" data-i18n="historical.btn_temp">Temperatura</button>
+          <button type="button" class="btn btn-outline-primary" data-param="humidity"    onclick="switchChart(this.dataset.param)" data-i18n="historical.btn_hum">Humedad</button>
+          <button type="button" class="btn btn-outline-primary" data-param="nh3"         onclick="switchChart(this.dataset.param)">NH3</button>
+          <button type="button" class="btn btn-outline-primary" data-param="co2"         onclick="switchChart(this.dataset.param)">CO2</button>
+          <button type="button" class="btn btn-outline-primary" data-param="co"          onclick="switchChart(this.dataset.param)">CO</button>
         </div>
       </div>
       <canvas id="dataChart"></canvas>
@@ -212,8 +199,8 @@
       const res = await fetch('/api/umbrales');
       if (res.ok) {
         const data = await res.json();
-        data.forEach(t => {
-          thresholds[t.variable] = t;
+        data.forEach(item => {
+          thresholds[item.variable] = item;
         });
         console.log('Thresholds loaded:', thresholds);
       }
@@ -250,7 +237,7 @@
     }
 
     // Show loading state
-    document.getElementById('dataTableBody').innerHTML = '<tr><td colspan="7" class="text-center">Loading data...</td></tr>';
+    document.getElementById('dataTableBody').innerHTML = `<tr><td colspan="7" class="text-center">${t('historical.loading')}</td></tr>`;
 
     try {
       const res = await fetch(url);
@@ -281,18 +268,15 @@
 
     } catch (err) {
       console.error('Error loading data:', err);
-      document.getElementById('dataTableBody').innerHTML = `<tr><td colspan="7" class="text-center text-danger">Error: ${err.message}</td></tr>`;
+      document.getElementById('dataTableBody').innerHTML = `<tr><td colspan="7" class="text-center text-danger">${t('historical.error')}: ${err.message}</td></tr>`;
     }
   }
 
   function formatTimestamp(date) {
-    return date.toLocaleString('es-MX', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
+    const locale = window.currentLang === 'en' ? 'en-US' : 'es-MX';
+    return date.toLocaleString(locale, {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
     });
   }
 
@@ -303,7 +287,7 @@
 
     const tbody = document.getElementById('dataTableBody');
     if (pageData.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" class="text-center">No se encontraron registros</td></tr>';
+      tbody.innerHTML = `<tr><td colspan="7" class="text-center">${t('historical.empty')}</td></tr>`;
       return;
     }
 
@@ -331,7 +315,7 @@
 
     // Previous button
     html += `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
-    <a class="page-link" href="#" onclick="changePage(${currentPage - 1}); return false;">Anterior</a>
+    <a class="page-link" href="#" onclick="changePage(${currentPage - 1}); return false;">${t('historical.btn_prev')}</a>
   </li>`;
 
     // Page numbers logic (simplified)
@@ -351,7 +335,7 @@
 
     // Next button
     html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
-    <a class="page-link" href="#" onclick="changePage(${currentPage + 1}); return false;">Siguiente</a>
+    <a class="page-link" href="#" onclick="changePage(${currentPage + 1}); return false;">${t('historical.btn_next')}</a>
   </li>`;
 
     pagination.innerHTML = html;
@@ -576,6 +560,11 @@
       currentPage = 1;
       renderTable();
     });
+  });
+
+  document.addEventListener('langchange', function () {
+    renderTable();
+    updateChart();
   });
 </script>
 

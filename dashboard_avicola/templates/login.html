@@ -7,6 +7,7 @@
   <title>Login - Sistema de Monitoreo Avícola</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+  <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
   <style>
     body {
       background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%);
@@ -64,11 +65,15 @@
 <body>
   <div class="card-custom">
     <div class="card-header-custom">
+      <div class="d-flex justify-content-end mb-1">
+        <button class="btn btn-sm btn-outline-light lang-toggle-btn" onclick="toggleLanguage()"
+                style="min-width:36px; font-weight:600;">EN</button>
+      </div>
       <h4 class="mb-0">
         <i class="bi bi-person-circle me-2"></i>
-        Iniciar Sesión
+        <span data-i18n="login.title">Iniciar Sesión</span>
       </h4>
-      <small class="opacity-75">Sistema de Monitoreo Avícola</small>
+      <small class="opacity-75" data-i18n="login.subtitle">Sistema de Monitoreo Avícola</small>
     </div>
     <div class="card-body p-4">
       {% with messages = get_flashed_messages() %}
@@ -87,135 +92,93 @@
       <form method="POST">
         <div class="mb-3">
           <label for="username" class="form-label">
-            <i class="bi bi-person me-1"></i>Usuario
+            <i class="bi bi-person me-1"></i><span data-i18n="login.lbl_username">Usuario</span>
           </label>
-          <input type="text" class="form-control" id="username" name="username" required 
-                 placeholder="Ingrese nombre de usuario">
+          <input type="text" class="form-control" id="username" name="username" required
+                 data-i18n-ph="login.ph_username" placeholder="Ingrese nombre de usuario">
         </div>
-        
+
         <div class="mb-3">
           <label for="full_name" class="form-label">
-            <i class="bi bi-person-badge me-1"></i>Nombre Completo
+            <i class="bi bi-person-badge me-1"></i><span data-i18n="login.lbl_fullname">Nombre Completo</span>
           </label>
-          <input type="text" class="form-control" id="full_name" name="full_name" required 
-                 placeholder="Ingrese su nombre completo">
+          <input type="text" class="form-control" id="full_name" name="full_name" required
+                 data-i18n-ph="login.ph_fullname" placeholder="Ingrese su nombre completo">
         </div>
-        
+
         <div class="mb-3">
           <label for="password" class="form-label">
-            <i class="bi bi-lock me-1"></i>Contraseña
+            <i class="bi bi-lock me-1"></i><span data-i18n="login.lbl_password">Contraseña</span>
           </label>
-          <input type="password" class="form-control" id="password" name="password" required 
-                 placeholder="Ingrese contraseña (mínimo 6 caracteres)">
+          <input type="password" class="form-control" id="password" name="password" required
+                 data-i18n-ph="login.ph_password" placeholder="Ingrese contraseña (mínimo 6 caracteres)">
         </div>
-        
+
         <div class="mb-3">
           <label for="confirm_password" class="form-label">
-            <i class="bi bi-lock-fill me-1"></i>Confirmar Contraseña
+            <i class="bi bi-lock-fill me-1"></i><span data-i18n="login.lbl_confirm">Confirmar Contraseña</span>
           </label>
-          <input type="password" class="form-control" id="confirm_password" name="confirm_password" required 
-                 placeholder="Confirme su contraseña">
+          <input type="password" class="form-control" id="confirm_password" name="confirm_password" required
+                 data-i18n-ph="login.ph_confirm" placeholder="Confirme su contraseña">
         </div>
-        
+
         <div class="mb-3">
           <label for="role" class="form-label">
-            <i class="bi bi-shield me-1"></i>Rol
+            <i class="bi bi-shield me-1"></i><span data-i18n="login.lbl_role">Rol</span>
           </label>
           <select class="form-control" id="role" name="role" required>
-            <option value="User">Usuario</option>
-            <option value="Admin">Administrador</option>
+            <option value="User" data-i18n="login.opt_user">Usuario</option>
+            <option value="Admin" data-i18n="login.opt_admin">Administrador</option>
           </select>
         </div>
-        
-        <button type="submit" class="btn btn-primary-custom mb-3">Registrar Usuario</button>
+
+        <button type="submit" class="btn btn-primary-custom mb-3">
+          <span data-i18n="login.btn_register">Registrar Usuario</span>
+        </button>
       </form>
-      
+
       <div class="text-center">
-        <small>¿Ya tienes cuenta? <a href="/login" class="text-decoration-none">Inicia sesión aquí</a></small>
+        <small>
+          <span data-i18n="login.already_account">¿Ya tienes cuenta?</span>
+          <a href="/login" class="text-decoration-none" data-i18n="login.login_here">Inicia sesión aquí</a>
+        </small>
       </div>
       {% else %}
       <!-- Login Form -->
       <form method="POST">
         <div class="mb-3">
           <label for="username" class="form-label">
-            <i class="bi bi-person me-1"></i>Usuario
+            <i class="bi bi-person me-1"></i><span data-i18n="login.lbl_username">Usuario</span>
           </label>
-          <input type="text" class="form-control" id="username" name="username" required 
-                 placeholder="Ingrese nombre de usuario">
+          <input type="text" class="form-control" id="username" name="username" required
+                 data-i18n-ph="login.ph_username" placeholder="Ingrese nombre de usuario">
         </div>
-        
+
         <div class="mb-3">
           <label for="password" class="form-label">
-            <i class="bi bi-lock me-1"></i>Contraseña
+            <i class="bi bi-lock me-1"></i><span data-i18n="login.lbl_password">Contraseña</span>
           </label>
-          <input type="password" class="form-control" id="password" name="password" required 
-                 placeholder="Ingrese contraseña">
+          <input type="password" class="form-control" id="password" name="password" required
+                 data-i18n-ph="login.ph_password_short" placeholder="Ingrese contraseña">
         </div>
-        
-        <button type="submit" class="btn btn-primary-custom mb-3">Iniciar Sesión</button>
+
+        <button type="submit" class="btn btn-primary-custom mb-3">
+          <span data-i18n="login.btn_login">Iniciar Sesión</span>
+        </button>
       </form>
-      
+
       <div class="text-center">
-        <small>¿No tienes cuenta? <a href="/register" class="text-decoration-none">Regístrate aquí</a></small>
+        <small>
+          <span data-i18n="login.no_account">¿No tienes cuenta?</span>
+          <a href="/register" class="text-decoration-none" data-i18n="login.register_here">Regístrate aquí</a>
+        </small>
       </div>
       {% endif %}
 
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <script>
-    async function handleLogin(e) {
-      e.preventDefault();
-      const username = document.getElementById('username').value;
-      const password = document.getElementById('password').value;
-
-      try {
-        const res = await fetch(`${getBaseUrl()}/api/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password })
-        });
-        const data = await res.json();
-
-        if (res.ok) {
-          // Store user data in localStorage
-          localStorage.setItem('currentUser', JSON.stringify(data.user));
-
-          Swal.fire({
-            icon: 'success',
-            title: 'Welcome!',
-            text: 'Login successful',
-            timer: 1500,
-            showConfirmButton: false
-          }).then(() => {
-            window.location.href = '/dashboard';
-          });
-        } else {
-          Swal.fire({
-            icon: 'error',
-            title: 'Oops...',
-            text: data.error || 'Login failed'
-          });
-        }
-      } catch (err) {
-        console.error(err);
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: 'Connection error'
-        });
-      }
-    }
-
-    function getBaseUrl() {
-      const currentPort = window.location.port;
-      if (currentPort === '5001') {
-        return `${window.location.protocol}//${window.location.hostname}:5000`;
-      }
-      return window.location.origin;
-    }
-  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 
 </html>

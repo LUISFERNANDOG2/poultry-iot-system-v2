@@ -4,8 +4,8 @@
 
 <div class="d-flex justify-content-between align-items-center mb-4">
   <div>
-    <h3 class="mb-1"><i class="bi bi-house-door me-2"></i>Naves y Módulos</h3>
-    <p class="text-muted mb-0 d-none d-md-block">Administración de granjas, naves y módulos IoT</p>
+    <h3 class="mb-1"><i class="bi bi-house-door me-2"></i><span data-i18n="devices.title">Naves y Módulos</span></h3>
+    <p class="text-muted mb-0 d-none d-md-block" data-i18n="devices.subtitle">Administración de granjas, naves y módulos IoT</p>
   </div>
 </div>
 
@@ -14,9 +14,9 @@
      ============================================================ -->
 <div class="card mb-4">
   <div class="card-header bg-white d-flex justify-content-between align-items-center">
-    <h6 class="mb-0"><i class="bi bi-geo-alt me-2 text-success"></i>Granjas</h6>
+    <h6 class="mb-0"><i class="bi bi-geo-alt me-2 text-success"></i><span data-i18n="devices.granjas_title">Granjas</span></h6>
     <button class="btn btn-sm btn-success" onclick="openGranjaModal()">
-      <i class="bi bi-plus-lg me-1"></i>Nueva Granja
+      <i class="bi bi-plus-lg me-1"></i><span data-i18n="devices.btn_new_granja">Nueva Granja</span>
     </button>
   </div>
   <div class="card-body p-0">
@@ -24,14 +24,14 @@
       <table class="table table-hover mb-0">
         <thead class="table-light">
           <tr>
-            <th>Nombre</th>
-            <th>Ubicación</th>
-            <th class="text-center">Naves</th>
-            <th class="text-end">Acciones</th>
+            <th><span data-i18n="devices.th_name">Nombre</span></th>
+            <th><span data-i18n="devices.th_location">Ubicación</span></th>
+            <th class="text-center"><span data-i18n="devices.th_naves">Naves</span></th>
+            <th class="text-end"><span data-i18n="devices.th_actions">Acciones</span></th>
           </tr>
         </thead>
         <tbody id="granjasTableBody">
-          <tr><td colspan="4" class="text-center text-muted py-3">Cargando...</td></tr>
+          <tr><td colspan="4" class="text-center text-muted py-3" data-i18n="devices.loading">Cargando...</td></tr>
         </tbody>
       </table>
     </div>
@@ -43,9 +43,9 @@
      ============================================================ -->
 <div class="card mb-4">
   <div class="card-header bg-white d-flex justify-content-between align-items-center">
-    <h6 class="mb-0"><i class="bi bi-house me-2 text-primary"></i>Naves</h6>
+    <h6 class="mb-0"><i class="bi bi-house me-2 text-primary"></i><span data-i18n="devices.naves_title">Naves</span></h6>
     <button class="btn btn-sm btn-primary" onclick="openNaveModal()">
-      <i class="bi bi-plus-lg me-1"></i>Nueva Nave
+      <i class="bi bi-plus-lg me-1"></i><span data-i18n="devices.btn_new_nave">Nueva Nave</span>
     </button>
   </div>
   <div class="card-body p-0">
@@ -53,15 +53,15 @@
       <table class="table table-hover mb-0">
         <thead class="table-light">
           <tr>
-            <th>Nave</th>
-            <th>Granja</th>
-            <th>Inicio Parvada</th>
-            <th>Semana Actual</th>
-            <th class="text-end">Acciones</th>
+            <th><span data-i18n="devices.th_nave">Nave</span></th>
+            <th><span data-i18n="devices.th_granja">Granja</span></th>
+            <th><span data-i18n="devices.th_start_date">Inicio Parvada</span></th>
+            <th><span data-i18n="devices.th_current_week">Semana Actual</span></th>
+            <th class="text-end"><span data-i18n="devices.th_actions">Acciones</span></th>
           </tr>
         </thead>
         <tbody id="navesTableBody">
-          <tr><td colspan="5" class="text-center text-muted py-3">Cargando...</td></tr>
+          <tr><td colspan="5" class="text-center text-muted py-3" data-i18n="devices.loading">Cargando...</td></tr>
         </tbody>
       </table>
     </div>
@@ -73,21 +73,21 @@
      ============================================================ -->
 <div class="card mb-4">
   <div class="card-header bg-white">
-    <h6 class="mb-0"><i class="bi bi-cpu me-2 text-warning"></i>Módulos IoT</h6>
+    <h6 class="mb-0"><i class="bi bi-cpu me-2 text-warning"></i><span data-i18n="devices.modulos_title">Módulos IoT</span></h6>
   </div>
   <div class="card-body p-0">
     <div class="table-responsive">
       <table class="table table-hover mb-0">
         <thead class="table-light">
           <tr>
-            <th>Código</th>
-            <th>Nave asignada</th>
-            <th>Granja</th>
-            <th>Asignar nave</th>
+            <th><span data-i18n="devices.th_code">Código</span></th>
+            <th><span data-i18n="devices.th_assigned_nave">Nave asignada</span></th>
+            <th><span data-i18n="devices.th_granja">Granja</span></th>
+            <th><span data-i18n="devices.th_assign_nave">Asignar nave</span></th>
           </tr>
         </thead>
         <tbody id="modulosTableBody">
-          <tr><td colspan="4" class="text-center text-muted py-3">Cargando...</td></tr>
+          <tr><td colspan="4" class="text-center text-muted py-3" data-i18n="devices.loading">Cargando...</td></tr>
         </tbody>
       </table>
     </div>
@@ -101,14 +101,14 @@
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="entityModalTitle">Nueva entidad</h5>
+        <h5 class="modal-title" id="entityModalTitle"></h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body" id="entityModalBody">
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="button" class="btn btn-primary" id="entityModalSaveBtn" onclick="saveEntity()">Guardar</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="devices.btn_cancel">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="entityModalSaveBtn" onclick="saveEntity()" data-i18n="devices.btn_save">Guardar</button>
       </div>
     </div>
   </div>
@@ -144,14 +144,14 @@ async function loadGranjas() {
     renderGranjas();
   } catch (e) {
     document.getElementById('granjasTableBody').innerHTML =
-      '<tr><td colspan="4" class="text-danger text-center py-3">Error al cargar granjas</td></tr>';
+      `<tr><td colspan="4" class="text-danger text-center py-3">${t('devices.error_granjas')}</td></tr>`;
   }
 }
 
 function renderGranjas() {
   const tbody = document.getElementById('granjasTableBody');
   if (!granjas.length) {
-    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">No hay granjas registradas</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-3">${t('devices.empty_granjas')}</td></tr>`;
     return;
   }
   tbody.innerHTML = granjas.map(g => `
@@ -160,10 +160,10 @@ function renderGranjas() {
       <td>${esc(g.ubicacion || '—')}</td>
       <td class="text-center">${g.naves ? g.naves.length : 0}</td>
       <td class="text-end">
-        <button class="btn btn-sm btn-outline-primary me-1" onclick="openGranjaModal(${g.id})">
+        <button class="btn btn-sm btn-outline-primary me-1" onclick="openGranjaModal(${g.id})" title="${t('devices.btn_edit')}">
           <i class="bi bi-pencil"></i>
         </button>
-        <button class="btn btn-sm btn-outline-danger" onclick="deleteGranja(${g.id})">
+        <button class="btn btn-sm btn-outline-danger" onclick="deleteGranja(${g.id})" title="${t('devices.btn_delete')}">
           <i class="bi bi-trash"></i>
         </button>
       </td>
@@ -175,15 +175,15 @@ function openGranjaModal(id) {
   const granja = id ? granjas.find(g => g.id === id) : null;
   modalMode = id ? 'granja-edit' : 'granja-create';
   editingId = id || null;
-  document.getElementById('entityModalTitle').textContent = id ? 'Editar Granja' : 'Nueva Granja';
+  document.getElementById('entityModalTitle').textContent = id ? t('devices.modal_edit_granja') : t('devices.modal_new_granja');
   document.getElementById('entityModalBody').innerHTML = `
     <div class="mb-3">
-      <label class="form-label fw-bold">Nombre <span class="text-danger">*</span></label>
+      <label class="form-label fw-bold">${t('devices.lbl_nombre')} <span class="text-danger">*</span></label>
       <input type="text" class="form-control" id="fieldNombre" maxlength="100"
              value="${esc(granja ? granja.nombre : '')}">
     </div>
     <div class="mb-3">
-      <label class="form-label fw-bold">Ubicación</label>
+      <label class="form-label fw-bold">${t('devices.lbl_ubicacion')}</label>
       <input type="text" class="form-control" id="fieldUbicacion" maxlength="200"
              value="${esc(granja ? (granja.ubicacion || '') : '')}">
     </div>
@@ -192,10 +192,10 @@ function openGranjaModal(id) {
 }
 
 async function deleteGranja(id) {
-  if (!confirm('¿Eliminar esta granja? Solo se puede si no tiene naves.')) return;
+  if (!confirm(t('devices.confirm_delete_granja'))) return;
   const res = await fetch(`/api/granjas/${id}`, { method: 'DELETE' });
   const data = await res.json();
-  if (!res.ok) { alert(data.error || 'Error al eliminar'); return; }
+  if (!res.ok) { alert(data.error || t('devices.error_delete')); return; }
   await loadAll();
 }
 
@@ -209,18 +209,20 @@ async function loadNaves() {
     renderNaves();
   } catch (e) {
     document.getElementById('navesTableBody').innerHTML =
-      '<tr><td colspan="5" class="text-danger text-center py-3">Error al cargar naves</td></tr>';
+      `<tr><td colspan="5" class="text-danger text-center py-3">${t('devices.error_naves')}</td></tr>`;
   }
 }
 
 function renderNaves() {
   const tbody = document.getElementById('navesTableBody');
   if (!naves.length) {
-    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">No hay naves registradas</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-3">${t('devices.empty_naves')}</td></tr>`;
     return;
   }
   tbody.innerHTML = naves.map(n => {
-    const semana = n.parvada ? `Semana ${n.parvada.semana}, Día ${n.parvada.dia_semana}` : '—';
+    const semana = n.parvada
+      ? `${t('devices.week')} ${n.parvada.semana}, ${t('devices.day')} ${n.parvada.dia_semana}`
+      : '—';
     const fechaLabel = n.fecha_inicio_parvada || '—';
     return `
     <tr>
@@ -229,10 +231,10 @@ function renderNaves() {
       <td>${esc(fechaLabel)}</td>
       <td>${esc(semana)}</td>
       <td class="text-end">
-        <button class="btn btn-sm btn-outline-primary me-1" onclick="openNaveModal(${n.id})">
+        <button class="btn btn-sm btn-outline-primary me-1" onclick="openNaveModal(${n.id})" title="${t('devices.btn_edit')}">
           <i class="bi bi-pencil"></i>
         </button>
-        <button class="btn btn-sm btn-outline-danger" onclick="deleteNave(${n.id})">
+        <button class="btn btn-sm btn-outline-danger" onclick="deleteNave(${n.id})" title="${t('devices.btn_delete')}">
           <i class="bi bi-trash"></i>
         </button>
       </td>
@@ -245,38 +247,38 @@ function openNaveModal(id) {
   const nave = id ? naves.find(n => n.id === id) : null;
   modalMode = id ? 'nave-edit' : 'nave-create';
   editingId = id || null;
-  document.getElementById('entityModalTitle').textContent = id ? 'Editar Nave' : 'Nueva Nave';
+  document.getElementById('entityModalTitle').textContent = id ? t('devices.modal_edit_nave') : t('devices.modal_new_nave');
   const granjaOptions = granjas.map(g =>
     `<option value="${g.id}" ${nave && nave.granja_id === g.id ? 'selected' : ''}>${esc(g.nombre)}</option>`
   ).join('');
   document.getElementById('entityModalBody').innerHTML = `
     <div class="mb-3">
-      <label class="form-label fw-bold">Nombre <span class="text-danger">*</span></label>
+      <label class="form-label fw-bold">${t('devices.lbl_nombre')} <span class="text-danger">*</span></label>
       <input type="text" class="form-control" id="fieldNombre" maxlength="100"
              value="${esc(nave ? nave.nombre : '')}">
     </div>
     <div class="mb-3">
-      <label class="form-label fw-bold">Granja <span class="text-danger">*</span></label>
+      <label class="form-label fw-bold">${t('devices.lbl_granja')} <span class="text-danger">*</span></label>
       <select class="form-select" id="fieldGranjaId">
-        <option value="">— Seleccionar granja —</option>
+        <option value="">${t('devices.opt_select_granja')}</option>
         ${granjaOptions}
       </select>
     </div>
     <div class="mb-3">
-      <label class="form-label fw-bold">Fecha inicio parvada</label>
+      <label class="form-label fw-bold">${t('devices.lbl_fecha_parvada')}</label>
       <input type="date" class="form-control" id="fieldFecha"
              value="${nave && nave.fecha_inicio_parvada ? nave.fecha_inicio_parvada : ''}">
-      <small class="text-muted">Dejar vacío para borrar la parvada</small>
+      <small class="text-muted">${t('devices.hint_fecha_parvada')}</small>
     </div>
   `;
   entityModal.show();
 }
 
 async function deleteNave(id) {
-  if (!confirm('¿Eliminar esta nave? Solo se puede si no tiene módulos asignados.')) return;
+  if (!confirm(t('devices.confirm_delete_nave'))) return;
   const res = await fetch(`/api/naves/${id}`, { method: 'DELETE' });
   const data = await res.json();
-  if (!res.ok) { alert(data.error || 'Error al eliminar'); return; }
+  if (!res.ok) { alert(data.error || t('devices.error_delete')); return; }
   await loadAll();
 }
 
@@ -290,19 +292,16 @@ async function loadModulos() {
     renderModulos();
   } catch (e) {
     document.getElementById('modulosTableBody').innerHTML =
-      '<tr><td colspan="4" class="text-danger text-center py-3">Error al cargar módulos</td></tr>';
+      `<tr><td colspan="4" class="text-danger text-center py-3">${t('devices.error_modulos')}</td></tr>`;
   }
 }
 
 function renderModulos() {
   const tbody = document.getElementById('modulosTableBody');
   if (!modulos.length) {
-    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">No hay módulos detectados</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-3">${t('devices.empty_modulos')}</td></tr>`;
     return;
   }
-  const naveOptions = naves.map(n =>
-    `<option value="${n.id}">${esc(n.nombre)} (${esc(n.granja_nombre || '')})</option>`
-  ).join('');
   tbody.innerHTML = modulos.map(m => `
     <tr>
       <td><strong>${esc(m.codigo)}</strong></td>
@@ -311,7 +310,7 @@ function renderModulos() {
       <td>
         <select class="form-select form-select-sm" style="max-width:220px;"
                 onchange="assignNave('${esc(m.codigo)}', this.value)">
-          <option value="">— Sin asignar —</option>
+          <option value="">${t('devices.opt_unassigned')}</option>
           ${naves.map(n =>
             `<option value="${n.id}" ${m.nave_id === n.id ? 'selected' : ''}>
               ${esc(n.nombre)} · ${esc(n.granja_nombre || '')}
@@ -332,11 +331,11 @@ async function assignNave(codigo, naveId) {
     });
     if (!res.ok) {
       const d = await res.json();
-      alert(d.error || 'Error al asignar');
+      alert(d.error || t('devices.error_assign'));
     }
     await loadModulos();
   } catch (e) {
-    alert('Error de conexión');
+    alert(t('devices.error_connection'));
   }
 }
 
@@ -345,7 +344,7 @@ async function assignNave(codigo, naveId) {
 // ============================================================
 async function saveEntity() {
   const nombre = document.getElementById('fieldNombre')?.value?.trim();
-  if (!nombre) { alert('El nombre es obligatorio'); return; }
+  if (!nombre) { alert(t('devices.required_nombre')); return; }
 
   let url, method, body;
 
@@ -359,13 +358,13 @@ async function saveEntity() {
     body = { nombre, ubicacion: document.getElementById('fieldUbicacion').value.trim() || null };
   } else if (modalMode === 'nave-create') {
     const granja_id = parseInt(document.getElementById('fieldGranjaId').value);
-    if (!granja_id) { alert('Selecciona una granja'); return; }
+    if (!granja_id) { alert(t('devices.required_granja')); return; }
     url = '/api/naves';
     method = 'POST';
     body = { nombre, granja_id, fecha_inicio_parvada: document.getElementById('fieldFecha').value || null };
   } else if (modalMode === 'nave-edit') {
     const granja_id = parseInt(document.getElementById('fieldGranjaId').value);
-    if (!granja_id) { alert('Selecciona una granja'); return; }
+    if (!granja_id) { alert(t('devices.required_granja')); return; }
     url = `/api/naves/${editingId}`;
     method = 'PUT';
     body = { nombre, granja_id, fecha_inicio_parvada: document.getElementById('fieldFecha').value || null };
@@ -378,11 +377,11 @@ async function saveEntity() {
       body: JSON.stringify(body)
     });
     const data = await res.json();
-    if (!res.ok) { alert(data.error || 'Error al guardar'); return; }
+    if (!res.ok) { alert(data.error || t('devices.error_save')); return; }
     entityModal.hide();
     await loadAll();
   } catch (e) {
-    alert('Error de conexión');
+    alert(t('devices.error_connection'));
   }
 }
 
@@ -397,6 +396,13 @@ function esc(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
+
+// Re-render all tables when language changes
+document.addEventListener('langchange', function () {
+  renderGranjas();
+  renderNaves();
+  renderModulos();
+});
 </script>
 
 {% endblock %}
