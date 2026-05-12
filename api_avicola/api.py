@@ -511,11 +511,17 @@ def update_umbrales():
         data = request.get_json()
         
         for item in data:
-            variable = item['variable']
-            valor_medio = item['valor_medio']
-            valor_alto = item['valor_alto']
-            valor_grave = item['valor_grave']
-            
+            variable    = item['variable']
+            valor_medio = float(item['valor_medio'])
+            valor_alto  = float(item['valor_alto'])
+            valor_grave = float(item['valor_grave'])
+
+            if not (valor_medio < valor_alto < valor_grave):
+                return jsonify({
+                    'error': f"Umbrales inválidos para '{variable}': "
+                             f"debe cumplirse medio ({valor_medio}) < alto ({valor_alto}) < grave ({valor_grave})"
+                }), 400
+
             # Update or create
             umbral = Umbral.query.filter_by(variable=variable).first()
             if umbral:
