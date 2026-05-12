@@ -297,8 +297,9 @@ def get_lecturas():
 def get_live_data():
     """Endpoint para obtener datos en tiempo real (formato objeto)"""
     try:
-        # Get module parameter, default to M1
-        modulo = request.args.get('modulo', 'M1')
+        modulo = request.args.get('modulo')
+        if not modulo:
+            return jsonify({}), 200
         lectura = db.session.query(Lectura).where(Lectura.modulo == modulo).order_by(Lectura.hora.desc()).first()
         if not lectura:
             return jsonify({})
