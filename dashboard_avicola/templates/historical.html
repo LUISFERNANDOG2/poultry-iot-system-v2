@@ -238,7 +238,7 @@
     const parameter = document.getElementById('parameterFilter').value;
     let url = `${window.location.protocol}//${window.location.hostname}:5000/api/historical?range=${range}`;
 
-    if (house !== 'all') url += `&house=${house}`;
+    if (house !== 'all') url += `&modulo=${house}`;
     if (parameter !== 'all') url += `&parameter=${parameter}`;
 
     if (range === 'custom') {

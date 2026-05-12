@@ -675,7 +675,7 @@ async function fetchHistoricalData(range, from = null, to = null) {
   const moduleSelect = document.getElementById('moduleSelect');
   if (moduleSelect) {
     const module = moduleSelect.value;
-    url += `&house=${module}`;
+    url += `&modulo=${module}`;
     console.log(`Fetching data for range: ${range}, module: ${module}`);
   }
 
@@ -754,7 +754,7 @@ async function fetchAllModulesData(range, from = null, to = null) {
   const allData = {};
   
   for (const module of modules) {
-    let url = `${getBaseUrl()}/api/historical?range=${range}&house=${module}`;
+    let url = `${getBaseUrl()}/api/historical?range=${range}&modulo=${module}`;
     if (from && to) url += `&from=${from}&to=${to}`;
     
     try {

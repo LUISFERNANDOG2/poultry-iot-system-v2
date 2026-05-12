@@ -322,7 +322,7 @@ def historical_data():
         range_param = request.args.get('range', '24h')
         from_date = request.args.get('from')
         to_date = request.args.get('to')
-        house_param = request.args.get('house')
+        house_param = request.args.get('modulo')
         
         # Calcular el tiempo límite según el rango
         now = datetime.now()
