@@ -1,6 +1,7 @@
 // Dashboard JavaScript - (QUERÉTARO VERSION 1.0)
 let temperatureChart, humidityChart, ammoniaChart, coChart, co2Chart;
-let lastRealUpdate = null;
+let lastRealUpdate = null;   // Timestamp de la última lectura del sensor (para mostrar en UI)
+let lastApiSuccess = null;   // Momento en que live-data respondió OK (para estado de conexión)
 
 // =========================================================
 // CONFIGURACIÓN DE CALIBRACIÓN - QUERÉTARO)
@@ -731,23 +732,6 @@ async function loadHistorical(range, from = null, to = null, clearFirst = false)
     return;
   }
 
-  const lastTimestamp = parseTimestamp(data.timestamps[data.timestamps.length - 1]);
-
-  if (!lastRealUpdate || lastTimestamp > lastRealUpdate) {
-    lastRealUpdate = lastTimestamp;
-    const dateStr = lastRealUpdate.toLocaleDateString('es-MX', {
-      year: 'numeric', month: '2-digit', day: '2-digit'
-    });
-    const timeStr = lastRealUpdate.toLocaleTimeString('es-MX', {
-      hour: '2-digit', minute: '2-digit', second: '2-digit'
-    });
-    document.getElementById('lastUpdate').textContent = `${dateStr} ${timeStr}`;
-  }
-
-  const diff = lastRealUpdate ? (Date.now() - lastRealUpdate.getTime()) / 1000 : 999999;
-  const timeAgoEl = document.getElementById('lastUpdateTime');
-  timeAgoEl.textContent = diff > 20 ? `(${formatTimeAgo(lastRealUpdate)})` : '';
-
   // Actualizar gráficas con datos del módulo seleccionado
   if (temperatureChart && humidityChart && ammoniaChart && coChart && co2Chart) {
     updateChart(temperatureChart, data.timestamps, data.temperature);
@@ -807,15 +791,16 @@ function applyCustomRange() {
 
 async function updateLiveData() {
   try {
-    // Get selected module
     const moduleSelect = document.getElementById('moduleSelect');
     const module = moduleSelect ? moduleSelect.value : 'M1';
-    
-    // Fetch live data with module parameter
+
     const res = await fetch(`${getBaseUrl()}/api/live-data?modulo=${module}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const data = await res.json();
+    // Registrar que la API respondió correctamente (para el estado de conexión)
+    lastApiSuccess = Date.now();
+
     updateMetricCards(data);
 
     if (data && data.timestamp) {
@@ -830,10 +815,6 @@ async function updateLiveData() {
       });
 
       document.getElementById('lastUpdate').textContent = `${dateStr} ${timeStr}`;
-
-      const timeAgoEl = document.getElementById('lastUpdateTime');
-      const diff = (Date.now() - lastTs.getTime()) / 1000;
-      timeAgoEl.textContent = diff > 5 ? `(${formatTimeAgo(lastTs)})` : '';
     }
   } catch (err) {
     console.error('Error actualizando live data:', err);
@@ -848,16 +829,17 @@ setInterval(() => {
   const status = document.getElementById("connectionStatus");
   const timeAgoEl = document.getElementById("lastUpdateTime");
 
-  if (!lastRealUpdate) {
-    status.className = 'badge bg-danger';
+  // Usar lastApiSuccess (cuándo respondió live-data) para el badge, no el timestamp del sensor
+  if (!lastApiSuccess) {
+    status.className = 'badge bg-secondary';
     status.textContent = t('dashboard.disconnected');
     if (timeAgoEl) timeAgoEl.textContent = "";
     return;
   }
 
-  const diff = (Date.now() - lastRealUpdate.getTime()) / 1000;
+  const secondsSinceApi = (Date.now() - lastApiSuccess) / 1000;
 
-  if (diff > 15) {
+  if (secondsSinceApi > 30) {
     status.className = 'badge bg-danger';
     status.textContent = t('dashboard.disconnected');
   } else {
@@ -865,8 +847,10 @@ setInterval(() => {
     status.textContent = t('dashboard.connected');
   }
 
-  if (timeAgoEl && diff > 5) {
-    timeAgoEl.textContent = `(${formatTimeAgo(lastRealUpdate)})`;
+  // "Hace X" muestra cuándo fue la última lectura del sensor (solo si hay dato)
+  if (timeAgoEl && lastRealUpdate) {
+    const sensorDiff = (Date.now() - lastRealUpdate.getTime()) / 1000;
+    timeAgoEl.textContent = sensorDiff > 10 ? `(${formatTimeAgo(lastRealUpdate)})` : '';
   }
 }, 2000);
 
