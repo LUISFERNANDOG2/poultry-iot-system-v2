@@ -27,10 +27,6 @@
         <label class="form-label small fw-bold" data-i18n="historical.filter_module">Módulo</label>
         <select class="form-select form-select-sm" id="houseSelect">
           <option value="all" data-i18n="historical.opt_all">Todos los módulos</option>
-          <option value="M1" selected>M1</option>
-          <option value="M2">M2</option>
-          <option value="M3">M3</option>
-          <option value="M4">M4</option>
         </select>
       </div>
       <div class="col-md-3">
@@ -192,6 +188,22 @@
   let allData = [];
   let filteredData = [];
   let thresholds = {};
+  const API_BASE = `${window.location.protocol}//${window.location.hostname}:5000`;
+
+  async function populateHouseSelect() {
+    try {
+      const res = await fetch(`${API_BASE}/api/modulos`);
+      if (!res.ok) return;
+      const modulos = await res.json();
+      const sel = document.getElementById('houseSelect');
+      modulos.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.codigo;
+        opt.textContent = m.nave ? `${m.codigo} (${m.nave.nombre})` : m.codigo;
+        sel.appendChild(opt);
+      });
+    } catch (e) { console.error('Error cargando módulos:', e); }
+  }
 
   // Fetch thresholds from API
   async function loadThresholds() {
@@ -540,7 +552,7 @@
   // Initialization
   document.addEventListener('DOMContentLoaded', async function () {
     initChart();
-    await loadThresholds();
+    await Promise.all([populateHouseSelect(), loadThresholds()]);
     loadData();
 
     // Event listeners
