@@ -633,7 +633,7 @@ function setupRangeSelector() {
   rangeSelect.addEventListener('change', () => {
     updateVisibility();
     if (rangeSelect.value !== 'custom') {
-      loadHistorical(rangeSelect.value);
+      loadHistorical(rangeSelect.value, null, null, true);
     }
   });
 
@@ -649,9 +649,9 @@ function setupRangeSelector() {
       if (range === 'custom') {
         const from = document.getElementById('fromDate').value;
         const to = document.getElementById('toDate').value;
-        if (from && to) loadHistorical("custom", from, to);
+        if (from && to) loadHistorical("custom", from, to, true);
       } else {
-        loadHistorical(range);
+        loadHistorical(range, null, null, true);
       }
     });
   }
@@ -716,13 +716,13 @@ function formatTimeAgo(date) {
   return 'Hace ' + days + ' día' + (days > 1 ? 's' : '');
 }
 
-async function loadHistorical(range, from = null, to = null) {
+async function loadHistorical(range, from = null, to = null, clearFirst = false) {
   const historicalStatus = document.getElementById('historicalStatus') || createHistoricalStatus();
   historicalStatus.textContent = 'Cargando...';
   historicalStatus.className = 'badge bg-info';
 
-  // Limpiar completamente las gráficas antes de cargar nuevos datos
-  clearAllCharts();
+  // Solo limpiar cuando el usuario cambia de rango o módulo (no en cada actualización periódica)
+  if (clearFirst) clearAllCharts();
 
   const data = await fetchHistoricalData(range, from, to);
   if (!data || !data.timestamps || data.timestamps.length === 0) {
@@ -798,7 +798,7 @@ function applyCustomRange() {
     return;
   }
 
-  loadHistorical("custom", from, to);
+  loadHistorical("custom", from, to, true);
 }
 
 // =========================================================
