@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import text
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
@@ -41,8 +42,8 @@ db = SQLAlchemy(app)
 class Lectura(db.Model):
     __tablename__ = 'lecturas'
     id_lectura = db.Column(db.String, primary_key=True)
-    modulo = db.Column(db.String)
-    hora = db.Column(db.DateTime)  
+    modulo = db.Column(db.String, index=True)
+    hora   = db.Column(db.DateTime, index=True)
     temperatura = db.Column(db.Float)
     humedad = db.Column(db.Float)
     co = db.Column(db.Float)
@@ -111,9 +112,17 @@ class Modulo(db.Model):
     nombre = db.Column(db.String(100))
     nave_id = db.Column(db.Integer, db.ForeignKey('naves.id'), nullable=True)
 
-# Create tables if they don't exist
+# Create tables and indexes if they don't exist
 with app.app_context():
     db.create_all()
+    with db.engine.connect() as conn:
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_lecturas_modulo ON lecturas(modulo)"
+        ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_lecturas_hora ON lecturas(hora)"
+        ))
+        conn.commit()
 
 from datetime import date as date_type
 
