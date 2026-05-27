@@ -8,6 +8,21 @@ import os
 from datetime import datetime, timedelta
 import requests
 
+TELEGRAM_TOKEN   = os.getenv('TELEGRAM_BOT_TOKEN')
+TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
+
+def send_telegram_alert(message: str) -> None:
+    if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
+        return
+    try:
+        requests.get(
+            f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
+            params={"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "HTML"},
+            timeout=5
+        )
+    except Exception as e:
+        print(f"[Telegram] Error enviando alerta: {e}")
+
 
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -215,9 +230,17 @@ def check_and_create_alerts():
                 umbral=umbral.valor_alto if prioridad == 'warning' else umbral.valor_grave,
                 sensor=f"{variable.title()} Sensor #{modulo}"
             )
-            
             db.session.add(nueva_alerta)
-    
+
+            if prioridad == 'critical':
+                ts = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+                send_telegram_alert(
+                    f"🚨 <b>ALERTA CRÍTICA — {modulo}</b>\n"
+                    f"<b>{nombre_legible}:</b> {valor:.2f} {unidad}\n"
+                    f"<b>Umbral crítico:</b> {umbral.valor_grave:.2f} {unidad}\n"
+                    f"🕐 {ts}"
+                )
+
     db.session.commit()
 
 # MQTT endpoint

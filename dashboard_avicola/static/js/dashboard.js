@@ -524,23 +524,47 @@ function clearAllCharts() {
 }
 
 
-function updateChart(chart, labels, data) {
-  if (!chart || !labels || !data || labels.length === 0) return;
+function getRangeFromUI() {
+  const rangeSelect = document.getElementById('rangeSelect');
+  if (!rangeSelect) return null;
+  const range = rangeSelect.value;
+  const now = new Date();
 
-  const dataPoints = labels.map((ts, index) => ({
+  if (range === 'custom') {
+    const from = document.getElementById('fromDate').value;
+    const to   = document.getElementById('toDate').value;
+    return (from && to) ? { min: new Date(from), max: new Date(to) } : null;
+  }
+
+  const msMap = {
+    '1m': 60000, '10m': 600000, '30m': 1800000,
+    '1h': 3600000, '2h': 7200000, '12h': 43200000,
+    '24h': 86400000, '3d': 259200000, '7d': 604800000,
+  };
+  const ms = msMap[range];
+  return ms ? { min: new Date(now - ms), max: now } : null;
+}
+
+function updateChart(chart, labels, data) {
+  if (!chart) return;
+
+  const dataPoints = (labels || []).map((ts, index) => ({
     x: parseTimestamp(ts),
-    y: data[index] !== null ? data[index] : null
+    y: (data || [])[index] !== null ? (data || [])[index] : null
   })).filter(point => point.y !== null);
 
-  if (dataPoints.length === 0) return;
-
-  const minTime = Math.min(...dataPoints.map(p => p.x.getTime()));
-  const maxTime = Math.max(...dataPoints.map(p => p.x.getTime()));
-  const margin = (maxTime - minTime) * 0.05 || 1000;
-
   if (chart.options.scales && chart.options.scales.x) {
-    chart.options.scales.x.min = new Date(minTime - margin);
-    chart.options.scales.x.max = new Date(maxTime + margin);
+    const range = getRangeFromUI();
+    if (range) {
+      chart.options.scales.x.min = range.min;
+      chart.options.scales.x.max = range.max;
+    } else if (dataPoints.length > 0) {
+      const minTime = Math.min(...dataPoints.map(p => p.x.getTime()));
+      const maxTime = Math.max(...dataPoints.map(p => p.x.getTime()));
+      const margin = (maxTime - minTime) * 0.05 || 1000;
+      chart.options.scales.x.min = new Date(minTime - margin);
+      chart.options.scales.x.max = new Date(maxTime + margin);
+    }
   }
 
   chart.data.datasets[0].data = dataPoints;
@@ -631,9 +655,42 @@ function setupRangeSelector() {
     customContainer.classList.toggle('d-flex', isCustom);
   };
 
+  // Flatpickr — date+time pickers
+  const fpConfig = {
+    enableTime: true,
+    time_24hr: true,
+    allowInput: true,
+    dateFormat: 'Y-m-d H:i',
+  };
+
+  const fromPicker = flatpickr('#fromDate', {
+    ...fpConfig,
+    onChange(dates) {
+      if (dates[0]) toPicker.set('minDate', dates[0]);
+    },
+  });
+
+  const toPicker = flatpickr('#toDate', {
+    ...fpConfig,
+    onChange(dates) {
+      if (dates[0]) fromPicker.set('maxDate', dates[0]);
+    },
+  });
+
   rangeSelect.addEventListener('change', () => {
     updateVisibility();
-    if (rangeSelect.value !== 'custom') {
+    if (rangeSelect.value === 'custom') {
+      if (!fromPicker.selectedDates.length) {
+        const now = new Date();
+        const dayAgo = new Date(now - 24 * 60 * 60 * 1000);
+        fromPicker.setDate(dayAgo);
+        toPicker.setDate(now);
+      }
+    } else {
+      fromPicker.clear();
+      toPicker.clear();
+      fromPicker.set('maxDate', null);
+      toPicker.set('minDate', null);
       loadHistorical(rangeSelect.value, null, null, true);
     }
   });
