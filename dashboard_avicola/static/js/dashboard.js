@@ -475,10 +475,13 @@ function initChart(ctx, label, color) {
         x: {
           type: 'time',
           time: {
-            unit: 'hour',
+            tooltipFormat: 'dd/MM/yyyy HH:mm',
             displayFormats: {
-              hour: 'HH:mm',
-              minute: 'HH:mm'
+              minute: 'HH:mm',
+              hour:   'd MMM, HH:mm',
+              day:    'd MMM',
+              week:   'd MMM',
+              month:  'MMM yyyy',
             }
           },
           adapters: { date: { locale: 'es' } },

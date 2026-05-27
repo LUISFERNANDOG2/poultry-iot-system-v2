@@ -48,9 +48,10 @@ desktop.ini
 *.swp
 *.swo
 
-# Local testing files (never commit)
+# Local testing files — track scripts but not data files
 local_tests/*
 !local_tests/.gitkeep
+!local_tests/*.py
 
 # Claude Code session data
 .claude/
