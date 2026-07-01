@@ -46,8 +46,10 @@ const char* topic_data = "sensor/modulo1/data";
 #define DHTTYPE DHT22
 DHT dht(DHTPIN, DHTTYPE);
 
-int mq7_pin  = 32;   
+int mq7_pin  = 32;
 int mq137_pin = 33;
+int o2_pin = 34;       // Grove O2 sensor (analógico)
+int wind_pin = 35;     // Anemómetro (analógico, señal 0–3.3V)
 
 Adafruit_CCS811 ccs;
 bool ccs811_initialized = false;
@@ -159,7 +161,7 @@ void reconnect() {
 // ===========================================================
 String createSensorJSON() {
     // Crear documento JSON
-    StaticJsonDocument<200> doc;
+    StaticJsonDocument<384> doc;
     
     
     // Variables para validación
@@ -223,6 +225,26 @@ String createSensorJSON() {
         failedReads++;
     }
     
+    // Leer sensor de oxígeno (Grove O2 - analógico 0–3.3V → 0–25%)
+    int o2Raw = analogRead(o2_pin);
+    if (o2Raw >= 10 && o2Raw <= 4095) {
+        float o2Pct = (o2Raw / 4095.0) * 25.0;  // Grove O2: 0V=0%, 3.3V=25%
+        doc["o2"] = round(o2Pct * 10) / 10;
+        hasValidData = true;
+    } else {
+        doc["o2"] = nullptr;
+    }
+
+    // Leer anemómetro (señal analógica 0–3.3V → 0–32.4 m/s)
+    int windRaw = analogRead(wind_pin);
+    if (windRaw >= 0 && windRaw <= 4095) {
+        float windMs = (windRaw / 4095.0) * 32.4;
+        doc["wind"] = round(windMs * 10) / 10;
+        hasValidData = true;
+    } else {
+        doc["wind"] = nullptr;
+    }
+
     // Agregar estadísticas
     doc["stats"] = JsonObject();
     doc["stats"]["successful_reads"] = successfulReads;
@@ -291,6 +313,8 @@ void setup() {
 
     pinMode(mq7_pin, INPUT);
     pinMode(mq137_pin, INPUT);
+    pinMode(o2_pin, INPUT);
+    pinMode(wind_pin, INPUT);
 
     // I2C en pines personalizados
     Wire.begin(25, 26);

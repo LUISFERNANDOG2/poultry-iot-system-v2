@@ -90,6 +90,15 @@
       'dashboard.chart_nh3': 'NH₃ (Señal ADC)',
       'dashboard.chart_co': 'CO (Señal ADC)',
       'dashboard.chart_co2': 'CO₂ (ppm bruto)',
+      'dashboard.card_o2': 'Oxígeno',
+      'dashboard.card_wind': 'Vel. Viento',
+      'dashboard.card_effective_temp': 'Temp. Efectiva',
+      'dashboard.chart_o2': 'O₂ (%)',
+      'dashboard.chart_wind': 'Viento (m/s)',
+      'dashboard.chart_effective_temp': 'Temp. Efectiva (°C)',
+      'dashboard.wind_toggle': 'Velocidad del viento',
+      'dashboard.wind_toggle_hint': 'Activa si el módulo tiene anemómetro',
+      'dashboard.effective_temp_label': 'Sensación térmica',
       // Parvada card
       'dashboard.parvada_granja': 'Granja',
       'dashboard.parvada_nave': 'Nave',
@@ -180,12 +189,16 @@
       'historical.col_nh3': 'NH3 (ADC)',
       'historical.col_co2': 'CO2 (ppm)',
       'historical.col_co': 'CO (ADC)',
+      'historical.col_o2': 'O₂ (%)',
+      'historical.col_wind': 'Viento (m/s)',
       'historical.legend_normal': 'Normal',
       'historical.legend_high': 'Alto (peligro)',
       'historical.legend_critical': 'Crítico',
       'historical.chart_header': 'Visualización de datos',
       'historical.btn_temp': 'Temperatura',
       'historical.btn_hum': 'Humedad',
+      'historical.btn_o2': 'O₂',
+      'historical.btn_wind': 'Viento',
       'historical.btn_prev': 'Anterior',
       'historical.btn_next': 'Siguiente',
       'historical.empty': 'No se encontraron registros',
@@ -365,6 +378,15 @@
       'dashboard.chart_nh3': 'NH₃ (ADC Signal)',
       'dashboard.chart_co': 'CO (ADC Signal)',
       'dashboard.chart_co2': 'CO₂ (raw ppm)',
+      'dashboard.card_o2': 'Oxygen',
+      'dashboard.card_wind': 'Wind Speed',
+      'dashboard.card_effective_temp': 'Effective Temp.',
+      'dashboard.chart_o2': 'O₂ (%)',
+      'dashboard.chart_wind': 'Wind (m/s)',
+      'dashboard.chart_effective_temp': 'Effective Temp. (°C)',
+      'dashboard.wind_toggle': 'Wind speed',
+      'dashboard.wind_toggle_hint': 'Enable if module has an anemometer',
+      'dashboard.effective_temp_label': 'Feels like',
       // Parvada card
       'dashboard.parvada_granja': 'Farm',
       'dashboard.parvada_nave': 'House',
@@ -455,12 +477,16 @@
       'historical.col_nh3': 'NH3 (ADC)',
       'historical.col_co2': 'CO2 (ppm)',
       'historical.col_co': 'CO (ADC)',
+      'historical.col_o2': 'O₂ (%)',
+      'historical.col_wind': 'Wind (m/s)',
       'historical.legend_normal': 'Normal',
       'historical.legend_high': 'High (danger)',
       'historical.legend_critical': 'Critical',
       'historical.chart_header': 'Data visualization',
       'historical.btn_temp': 'Temperature',
       'historical.btn_hum': 'Humidity',
+      'historical.btn_o2': 'O₂',
+      'historical.btn_wind': 'Wind',
       'historical.btn_prev': 'Previous',
       'historical.btn_next': 'Next',
       'historical.empty': 'No records found',
@@ -583,6 +609,16 @@
       btn.textContent = lang === 'es' ? 'EN' : 'ES';
       btn.title = lang === 'es' ? 'Switch to English' : 'Cambiar a Español';
     });
+    var pill = document.getElementById('langToggleBtn');
+    if (pill) {
+      if (lang === 'es') {
+        pill.innerHTML = '<span style="font-weight:800;color:#fff;">ES</span>&nbsp;<span style="opacity:.35;">|</span>&nbsp;<span style="opacity:.55;font-weight:500;">EN</span>';
+        pill.title = 'Switch to English';
+      } else {
+        pill.innerHTML = '<span style="opacity:.55;font-weight:500;">ES</span>&nbsp;<span style="opacity:.35;">|</span>&nbsp;<span style="font-weight:800;color:#fff;">EN</span>';
+        pill.title = 'Cambiar a Español';
+      }
+    }
 
     document.dispatchEvent(new CustomEvent('langchange', { detail: { lang: lang } }));
   };

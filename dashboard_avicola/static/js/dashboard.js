@@ -1,7 +1,9 @@
 // Dashboard JavaScript - (QUERÉTARO VERSION 1.0)
 let temperatureChart, humidityChart, ammoniaChart, coChart, co2Chart;
-let lastRealUpdate = null;   // Timestamp de la última lectura del sensor (para mostrar en UI)
-let lastApiSuccess = null;   // Momento en que live-data respondió OK (para estado de conexión)
+let o2Chart, windChart, effectiveTempChart;
+let lastRealUpdate = null;
+let lastApiSuccess = null;
+let previousLiveData = null;  // Para calcular deltas ▲/▼
 
 // =========================================================
 // CONFIGURACIÓN DE CALIBRACIÓN - QUERÉTARO)
@@ -75,6 +77,124 @@ function saveCalibrationToStorage() {
   localStorage.setItem('ccs811_offset', CCS811_OFFSET);
   localStorage.setItem('mq7_offset', MQ7_OFFSET);
   localStorage.setItem('mq137_offset', MQ137_OFFSET);
+}
+
+// =========================================================
+// DELTA ▲/▼ ENTRE LECTURA ACTUAL Y ANTERIOR
+// =========================================================
+
+function flashValue(elementId) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  el.classList.remove('flash');
+  void el.offsetWidth; // force reflow so animation restarts
+  el.classList.add('flash');
+}
+
+function updateDelta(elementId, current, previous, unit) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  if (current == null || previous == null) {
+    el.innerHTML = '<span class="delta-neutral">—</span>';
+    return;
+  }
+  const diff = current - previous;
+  if (Math.abs(diff) < 0.01) {
+    el.innerHTML = '<span class="delta-neutral">— sin cambio</span>';
+    return;
+  }
+  const sign = diff > 0 ? '▲' : '▼';
+  const cls  = diff > 0 ? 'delta-up' : 'delta-down';
+  el.innerHTML = `<span class="${cls}">${sign} ${Math.abs(diff).toFixed(1)} ${unit}</span>`;
+}
+
+function updateAllDeltas(current, previous) {
+  if (!previous) return;
+  updateDelta('temp_delta',  current.temperatura,      previous.temperatura,      '°C');
+  updateDelta('hum_delta',   current.humedad,          previous.humedad,          '%');
+  updateDelta('nh3_delta',   current.amoniaco,         previous.amoniaco,         'ADC');
+  updateDelta('co_delta',    current.co,               previous.co,               'ADC');
+  updateDelta('co2_delta',   current.co2,              previous.co2,              'ppm');
+  updateDelta('o2_delta',    current.oxigeno,          previous.oxigeno,          '%');
+  updateDelta('wind_delta',  current.velocidad_viento, previous.velocidad_viento, 'm/s');
+}
+
+// =========================================================
+// MINI ALERTAS EN DASHBOARD
+// =========================================================
+
+async function loadMiniAlerts() {
+  try {
+    const res = await fetch(`${getBaseUrl()}/api/alerts?status=active&limit=3`);
+    if (!res.ok) return;
+    const alerts = await res.json();
+    const section = document.getElementById('miniAlertsSection');
+    const list    = document.getElementById('miniAlertsList');
+    if (!section || !list) return;
+
+    if (!alerts.length) { section.style.display = 'none'; return; }
+
+    section.style.display = '';
+    list.innerHTML = alerts.map(a => {
+      const dotClass = a.prioridad === 'critical' ? 'critical' : a.prioridad === 'warning' ? 'warning' : 'info';
+      const ago = formatTimeAgo(new Date(a.timestamp));
+      return `<div class="mini-alert-item">
+        <span class="mini-alert-dot ${dotClass}"></span>
+        <span>${a.mensaje} <span class="text-muted" style="font-size:0.75rem;">— ${ago}</span></span>
+      </div>`;
+    }).join('');
+  } catch (e) { /* silencioso si falla */ }
+}
+
+// =========================================================
+// TOGGLE DE VELOCIDAD DEL VIENTO
+// =========================================================
+
+function onWindToggle(enabled) {
+  localStorage.setItem('wind_speed_enabled', enabled);
+  applyWindToggle(enabled);
+}
+
+function applyWindToggle(enabled) {
+  document.querySelectorAll('.card-wind').forEach(el => {
+    el.style.display = enabled ? '' : 'none';
+  });
+  document.querySelectorAll('.chart-wind').forEach(el => {
+    el.style.display = enabled ? '' : 'none';
+  });
+
+  if (enabled) {
+    if (!windChart) {
+      windChart = initChart(
+        document.getElementById('windChart'),
+        t('dashboard.chart_wind'),
+        "#6464c8"
+      );
+    }
+    if (!effectiveTempChart) {
+      effectiveTempChart = initChart(
+        document.getElementById('effectiveTempChart'),
+        t('dashboard.chart_effective_temp'),
+        "#0277bd"
+      );
+    }
+    // Rellenar gráficas con datos del último rango si ya hay datos históricos
+    const range = document.getElementById('rangeSelect');
+    if (range) loadHistorical(range.value === 'custom' ? 'custom' : range.value);
+  }
+}
+
+// =========================================================
+// CÁLCULO DE TEMPERATURA EFECTIVA (Steadman Apparent Temperature)
+// AT = Ta + 0.33 * e - 0.70 * WS - 4.00
+// e  = (RH/100) * 6.105 * exp(17.27 * Ta / (237.7 + Ta))
+// =========================================================
+
+function calculateEffectiveTemperature(temp, humidity, windMs) {
+  if (temp == null || humidity == null || windMs == null) return null;
+  const e = (humidity / 100) * 6.105 * Math.exp((17.27 * temp) / (237.7 + temp));
+  const at = temp + 0.33 * e - 0.70 * windMs - 4.00;
+  return Math.round(at * 10) / 10;
 }
 
 // =========================================================
@@ -294,10 +414,12 @@ function updateMetricCards(data) {
   // 4. Actualizar DOM con NUEVA ESTRUCTURA
 
   // Temperatura (1 línea)
+  flashValue('temp');
   document.getElementById('temp').textContent =
     (tempVal !== null && tempVal !== undefined) ? tempVal.toFixed(1) + ' °C' : '-- °C';
 
   // Humedad (1 línea)
+  flashValue('hum');
   document.getElementById('hum').textContent =
     (humVal !== null && humVal !== undefined) ? humVal.toFixed(1) + ' %' : '-- %';
 
@@ -305,6 +427,7 @@ function updateMetricCards(data) {
   const co2Element = document.getElementById('co2');
   const co2InfoElement = document.getElementById('co2_info');
 
+  flashValue('co2');
   if (co2Val !== null) {
     const corrected = ccs811Data.co2;
     const original = Math.round(co2Val);
@@ -339,6 +462,7 @@ function updateMetricCards(data) {
   const nh3RawElement = document.getElementById('ammonia_raw');
   const nh3PPMElement = document.getElementById('ammonia_ppm');
 
+  flashValue('ammonia_raw');
   if (nh3Raw !== null) {
     // Línea GRANDE: Valor ADC (RAW)
     nh3RawElement.textContent = nh3Raw.toFixed(0) + ' ADC';
@@ -361,6 +485,7 @@ function updateMetricCards(data) {
   const coRawElement = document.getElementById('co_raw');
   const coPPMElement = document.getElementById('co_ppm');
 
+  flashValue('co_raw');
   if (coRaw !== null) {
     // Línea GRANDE: Valor ADC (RAW)
     coRawElement.textContent = coRaw.toFixed(0) + ' ADC';
@@ -377,6 +502,30 @@ function updateMetricCards(data) {
     coRawElement.textContent = '-- ADC';
     coPPMElement.textContent = '-- ppm';
     coPPMElement.style.display = 'block';
+  }
+
+  // Oxígeno
+  const o2Element = document.getElementById('o2');
+  if (o2Element) {
+    flashValue('o2');
+    const o2Val = data.oxigeno;
+    o2Element.textContent = (o2Val !== null && o2Val !== undefined) ? o2Val.toFixed(1) + ' %' : '-- %';
+  }
+
+  // Velocidad del viento y temperatura efectiva (solo si toggle está ON)
+  const windEnabled = localStorage.getItem('wind_speed_enabled') === 'true';
+  if (windEnabled) {
+    const windVal = data.velocidad_viento;
+    const windEl = document.getElementById('wind_speed');
+    if (windEl) {
+      windEl.textContent = (windVal !== null && windVal !== undefined) ? windVal.toFixed(1) + ' m/s' : '-- m/s';
+    }
+
+    const effTempEl = document.getElementById('effective_temp');
+    if (effTempEl) {
+      const at = calculateEffectiveTemperature(data.temperatura, data.humedad, windVal);
+      effTempEl.textContent = at !== null ? at.toFixed(1) + ' °C' : '-- °C';
+    }
   }
 
   // Calibración automática en primera ejecución
@@ -408,15 +557,19 @@ async function initializeDashboard() {
   // Configurar selector de rango
   setupRangeSelector();
 
-  // Inicializar gráficas
+  // Inicializar gráficas siempre visibles
   temperatureChart = initChart(document.getElementById('temperatureChart'), t('dashboard.chart_temp'), "#43a047");
   humidityChart = initChart(document.getElementById('humidityChart'), t('dashboard.chart_hum'), "#1e88e5");
   ammoniaChart = initChart(document.getElementById('ammoniaChart'), t('dashboard.chart_nh3'), "#fb8c00");
   coChart = initChart(document.getElementById('coChart'), t('dashboard.chart_co'), "#43a047");
   co2Chart = initChart(document.getElementById('co2Chart'), t('dashboard.chart_co2'), "#e53935");
+  o2Chart = initChart(document.getElementById('o2Chart'), t('dashboard.chart_o2'), "#0288d1");
+
+  // Gráficas de viento/temp efectiva se crean en applyWindToggle si el toggle está ON
 
   // Cargar datos iniciales
   loadHistorical("24h");
+  loadMiniAlerts();
 }
 
 // =========================================================
@@ -506,7 +659,7 @@ function initChart(ctx, label, color) {
 
 function clearAllCharts() {
   // Limpiar completamente todas las gráficas
-  const charts = [temperatureChart, humidityChart, ammoniaChart, coChart, co2Chart];
+  const charts = [temperatureChart, humidityChart, ammoniaChart, coChart, co2Chart, o2Chart, windChart, effectiveTempChart];
   
   charts.forEach(chart => {
     if (chart) {
@@ -800,6 +953,19 @@ async function loadHistorical(range, from = null, to = null, clearFirst = false)
     updateChart(coChart, data.timestamps, data.co);
     updateChart(co2Chart, data.timestamps, data.co2);
   }
+  if (o2Chart) {
+    updateChart(o2Chart, data.timestamps, data.oxygen || []);
+  }
+  const windEnabled = localStorage.getItem('wind_speed_enabled') === 'true';
+  if (windEnabled) {
+    if (windChart) updateChart(windChart, data.timestamps, data.wind_speed || []);
+    if (effectiveTempChart && data.temperature && data.humidity && data.wind_speed) {
+      const atSeries = data.timestamps.map((_, i) =>
+        calculateEffectiveTemperature(data.temperature[i], data.humidity[i], data.wind_speed[i])
+      );
+      updateChart(effectiveTempChart, data.timestamps, atSeries);
+    }
+  }
 
   setTimeout(() => {
     historicalStatus.textContent = 'Gráficas actualizadas';
@@ -858,9 +1024,10 @@ async function updateLiveData() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const data = await res.json();
-    // Registrar que la API respondió correctamente (para el estado de conexión)
     lastApiSuccess = Date.now();
 
+    updateAllDeltas(data, previousLiveData);
+    previousLiveData = data;
     updateMetricCards(data);
 
     if (data && data.timestamp) {
@@ -886,31 +1053,33 @@ async function updateLiveData() {
 // =========================================================
 
 setInterval(() => {
-  const status = document.getElementById("connectionStatus");
+  const status  = document.getElementById("connectionStatus");
+  const dot     = document.getElementById("connectionDot");
   const timeAgoEl = document.getElementById("lastUpdateTime");
+  const lastDataTimeEl = document.getElementById("lastDataTime");
 
-  // Usar lastApiSuccess (cuándo respondió live-data) para el badge, no el timestamp del sensor
   if (!lastApiSuccess) {
-    status.className = 'badge bg-secondary';
-    status.textContent = t('dashboard.disconnected');
+    if (status) { status.className = 'fw-semibold text-muted'; status.textContent = t('dashboard.disconnected'); }
+    if (dot)    dot.className = 'live-dot pending';
     if (timeAgoEl) timeAgoEl.textContent = "";
     return;
   }
 
   const secondsSinceApi = (Date.now() - lastApiSuccess) / 1000;
+  const isConnected = secondsSinceApi <= 30;
 
-  if (secondsSinceApi > 30) {
-    status.className = 'badge bg-danger';
-    status.textContent = t('dashboard.disconnected');
-  } else {
-    status.className = 'badge bg-success';
-    status.textContent = t('dashboard.connected');
+  if (status) {
+    status.className = `fw-semibold ${isConnected ? 'text-success' : 'text-danger'}`;
+    status.textContent = isConnected ? t('dashboard.connected') : t('dashboard.disconnected');
   }
+  if (dot) dot.className = `live-dot ${isConnected ? 'connected' : 'disconnected'}`;
 
-  // "Hace X" muestra cuándo fue la última lectura del sensor (solo si hay dato)
   if (timeAgoEl && lastRealUpdate) {
     const sensorDiff = (Date.now() - lastRealUpdate.getTime()) / 1000;
-    timeAgoEl.textContent = sensorDiff > 10 ? `(${formatTimeAgo(lastRealUpdate)})` : '';
+    timeAgoEl.textContent = sensorDiff > 10 ? `· ${formatTimeAgo(lastRealUpdate)}` : '';
+  }
+  if (lastDataTimeEl && lastRealUpdate) {
+    lastDataTimeEl.textContent = lastRealUpdate.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   }
 }, 2000);
 
@@ -935,6 +1104,9 @@ function createHistoricalStatus() {
 // Live data cada 1 segundo
 // La actualización coincide con el firmware (5s) para ahorrar recursos
 setInterval(updateLiveData, 5000); // 5000ms = 5 segundos
+
+// Mini alertas cada 30 segundos
+setInterval(loadMiniAlerts, 30000);
 
 // Histórico cada 10 segundos
 setInterval(() => {

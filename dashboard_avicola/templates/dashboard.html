@@ -1,30 +1,32 @@
 {% extends 'base.html' %}
 {% block content %}
 
-<div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+<div class="page-header d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
   <div>
-    <h3 class="mb-1"><i class="bi bi-speedometer2 me-2"></i><span data-i18n="dashboard.title">Dashboard</span></h3>
+    <h3 class="mb-1"><i class="bi bi-speedometer2 me-2" style="color:var(--green-mid);"></i><span data-i18n="dashboard.title">Dashboard</span></h3>
     <p class="text-muted mb-0 d-none d-md-block" data-i18n="dashboard.subtitle">Visualización de datos en tiempo real</p>
   </div>
 </div>
+<nav class="breadcrumb-bar">
+  <i class="bi bi-house-fill" style="font-size:0.68rem; color:var(--green-mid);"></i>
+  <span class="breadcrumb-sep">/</span>
+  <span data-i18n="dashboard.title">Dashboard</span>
+</nav>
 
-<div class="row mb-3 mt-2">
-  <div class="col-md-3">
-    <label class="form-label fw-bold" data-i18n="dashboard.lbl_module">Módulo:</label>
-    <select class="form-select" id="moduleSelect">
-    </select>
-  </div>
-
-  <div class="col-md-8">
-    <div class="d-flex justify-content-between align-items-end mb-2">
-      <label class="form-label fw-bold mb-0" data-i18n="dashboard.lbl_range">Rango:</label>
-      <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#thresholdsModal">
-        <i class="bi bi-gear"></i> <span data-i18n="dashboard.btn_thresholds">Configurar Umbrales</span>
-      </button>
+<div class="controls-panel">
+  <div class="row g-3 align-items-end">
+    <div class="col-sm-6 col-md-3">
+      <span class="ctrl-label" data-i18n="dashboard.lbl_module">Módulo</span>
+      <select class="form-select form-select-sm" id="moduleSelect"></select>
     </div>
-
-    <div class="d-flex flex-wrap gap-2">
-      <select class="form-select" id="rangeSelect">
+    <div class="col-sm-6 col-md-5">
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <span class="ctrl-label mb-0" data-i18n="dashboard.lbl_range">Rango</span>
+        <button class="btn btn-sm btn-outline-secondary py-0" style="font-size:0.75rem;" data-bs-toggle="modal" data-bs-target="#thresholdsModal">
+          <i class="bi bi-sliders me-1"></i><span data-i18n="dashboard.btn_thresholds">Umbrales</span>
+        </button>
+      </div>
+      <select class="form-select form-select-sm" id="rangeSelect">
         <option value="1m"  data-i18n="dashboard.range_1m">Último minuto</option>
         <option value="10m" data-i18n="dashboard.range_10m">Últimos 10 minutos</option>
         <option value="30m" data-i18n="dashboard.range_30m">Últimos 30 minutos</option>
@@ -36,13 +38,23 @@
         <option value="7d"  data-i18n="dashboard.range_7d">Últimos 7 días</option>
         <option value="custom" data-i18n="dashboard.range_custom">Rango personalizado</option>
       </select>
-
-      <div class="d-flex gap-2" id="customRangeContainer" style="display:none; width: 100%;">
-        <input type="text" id="fromDate" class="form-control" placeholder="YYYY-MM-DD HH:MM" autocomplete="off">
-        <input type="text" id="toDate" class="form-control" placeholder="YYYY-MM-DD HH:MM" autocomplete="off">
-        <button class="btn btn-primary flex-shrink-0" id="applyRangeBtn" onclick="applyCustomRange()" data-i18n="dashboard.btn_filter">Filtrar</button>
+    </div>
+    <div class="col-sm-12 col-md-4">
+      <span class="ctrl-label">Sensor opcional</span>
+      <div>
+        <label class="wind-chip" for="windSpeedToggle">
+          <input class="form-check-input" type="checkbox" role="switch" id="windSpeedToggle" onchange="onWindToggle(this.checked)">
+          <i class="bi bi-tornado"></i>
+          <span data-i18n="dashboard.wind_toggle">Vel. Viento</span>
+        </label>
+        <span class="wind-chip-hint" data-i18n="dashboard.wind_toggle_hint">Activa si el módulo tiene anemómetro</span>
       </div>
     </div>
+  </div>
+  <div class="d-none gap-2 mt-3" id="customRangeContainer">
+    <input type="text" id="fromDate" class="form-control form-control-sm" placeholder="YYYY-MM-DD HH:MM" autocomplete="off">
+    <input type="text" id="toDate"   class="form-control form-control-sm" placeholder="YYYY-MM-DD HH:MM" autocomplete="off">
+    <button class="btn btn-primary btn-sm flex-shrink-0" id="applyRangeBtn" onclick="applyCustomRange()" data-i18n="dashboard.btn_filter">Filtrar</button>
   </div>
 </div>
 
@@ -120,94 +132,227 @@
 </div>
 
 <!-- Sensor cards -->
-<div class="row text-center mb-3">
+<div class="row mb-3">
   <div class="col-6 col-md mb-3">
-    <div class="card p-3">
-      <h5 data-i18n="dashboard.card_temp">Temperatura</h5>
-      <p id="temp" class="value">-- °C</p>
+    <div class="sensor-card">
+      <div class="sensor-icon-wrap sensor-icon-temp">
+        <i class="bi bi-thermometer-half"></i>
+      </div>
+      <div class="sensor-body">
+        <div class="sensor-label" data-i18n="dashboard.card_temp">Temperatura</div>
+        <div class="sensor-value" id="temp">-- °C</div>
+        <div class="sensor-delta" id="temp_delta"><span class="delta-neutral">—</span></div>
+      </div>
     </div>
   </div>
 
   <div class="col-6 col-md mb-3">
-    <div class="card p-3">
-      <h5 data-i18n="dashboard.card_hum">Humedad</h5>
-      <p id="hum" class="value">-- %</p>
+    <div class="sensor-card">
+      <div class="sensor-icon-wrap sensor-icon-hum">
+        <i class="bi bi-droplet-fill"></i>
+      </div>
+      <div class="sensor-body">
+        <div class="sensor-label" data-i18n="dashboard.card_hum">Humedad</div>
+        <div class="sensor-value" id="hum">-- %</div>
+        <div class="sensor-delta" id="hum_delta"><span class="delta-neutral">—</span></div>
+      </div>
     </div>
   </div>
 
   <div class="col-6 col-md mb-3">
-    <div class="card p-3">
-      <h5 data-i18n="dashboard.card_ammonia">Amoniaco</h5>
-      <p id="ammonia_raw" class="value mb-0">-- ADC</p>
-      <small id="ammonia_ppm" class="text-muted fw-bold" style="font-size: 0.9rem;">-- ppm (calc)</small>
+    <div class="sensor-card">
+      <div class="sensor-icon-wrap sensor-icon-nh3">
+        <i class="bi bi-exclamation-diamond-fill"></i>
+      </div>
+      <div class="sensor-body">
+        <div class="sensor-label" data-i18n="dashboard.card_ammonia">Amoniaco</div>
+        <div class="sensor-value" id="ammonia_raw">-- ADC</div>
+        <div class="sensor-value-sub" id="ammonia_ppm">-- ppm</div>
+        <div class="sensor-delta" id="nh3_delta"><span class="delta-neutral">—</span></div>
+      </div>
     </div>
   </div>
 
   <div class="col-6 col-md mb-3">
-    <div class="card p-3">
-      <h5 data-i18n="dashboard.card_co">CO</h5>
-      <p id="co_raw" class="value mb-0">-- ADC</p>
-      <small id="co_ppm" class="text-muted fw-bold" style="font-size: 0.9rem;">-- ppm (calc)</small>
+    <div class="sensor-card">
+      <div class="sensor-icon-wrap sensor-icon-co">
+        <i class="bi bi-cloud-fog-fill"></i>
+      </div>
+      <div class="sensor-body">
+        <div class="sensor-label" data-i18n="dashboard.card_co">CO</div>
+        <div class="sensor-value" id="co_raw">-- ADC</div>
+        <div class="sensor-value-sub" id="co_ppm">-- ppm</div>
+        <div class="sensor-delta" id="co_delta"><span class="delta-neutral">—</span></div>
+      </div>
     </div>
   </div>
 
   <div class="col-6 col-md mb-3">
-    <div class="card p-3">
-      <h5 data-i18n="dashboard.card_co2">CO₂</h5>
-      <p id="co2" class="value mb-0">-- ppm</p>
-      <small id="co2_info" class="text-muted fw-bold" style="font-size: 0.9rem;"></small>
+    <div class="sensor-card">
+      <div class="sensor-icon-wrap sensor-icon-co2">
+        <i class="bi bi-cloud-fog2-fill"></i>
+      </div>
+      <div class="sensor-body">
+        <div class="sensor-label" data-i18n="dashboard.card_co2">CO₂</div>
+        <div class="sensor-value" id="co2">-- ppm</div>
+        <div class="sensor-value-sub" id="co2_info"></div>
+        <div class="sensor-delta" id="co2_delta"><span class="delta-neutral">—</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-6 col-md mb-3">
+    <div class="sensor-card">
+      <div class="sensor-icon-wrap sensor-icon-o2">
+        <i class="bi bi-circle"></i>
+      </div>
+      <div class="sensor-body">
+        <div class="sensor-label" data-i18n="dashboard.card_o2">Oxígeno</div>
+        <div class="sensor-value" id="o2">-- %</div>
+        <div class="sensor-delta" id="o2_delta"><span class="delta-neutral">—</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Viento y temp efectiva: solo visibles con toggle ON -->
+  <div class="col-6 col-md mb-3 card-wind" style="display:none;">
+    <div class="sensor-card">
+      <div class="sensor-icon-wrap sensor-icon-wind">
+        <i class="bi bi-tornado"></i>
+      </div>
+      <div class="sensor-body">
+        <div class="sensor-label" data-i18n="dashboard.card_wind">Vel. Viento</div>
+        <div class="sensor-value" id="wind_speed">-- m/s</div>
+        <div class="sensor-delta" id="wind_delta"><span class="delta-neutral">—</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-6 col-md mb-3 card-wind" style="display:none;">
+    <div class="sensor-card">
+      <div class="sensor-icon-wrap sensor-icon-eff">
+        <i class="bi bi-thermometer-sun"></i>
+      </div>
+      <div class="sensor-body">
+        <div class="sensor-label" data-i18n="dashboard.card_effective_temp">Temp. Efectiva</div>
+        <div class="sensor-value" id="effective_temp" style="color:#00897b;">-- °C</div>
+        <div class="sensor-value-sub" data-i18n="dashboard.effective_temp_label">Sensación térmica</div>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- Connection status -->
-<div class="row mb-4">
-  <div class="col-12">
-    <div class="alert alert-info text-center mb-0">
-      <div class="d-flex flex-column flex-md-row justify-content-center align-items-center gap-2">
-        <div>
-          <strong data-i18n="dashboard.status_label">Estado de Conexión:</strong>
-          <span id="lastUpdate"> </span>
-          <span id="lastUpdateTime" class="text-muted ms-2"></span>
-        </div>
-        <span id="connectionStatus" class="badge bg-success" data-i18n="dashboard.connected">Conectado</span>
-      </div>
-    </div>
-  </div>
+<!-- Connection status strip -->
+<div class="status-strip mb-3">
+  <div class="live-dot pending" id="connectionDot"></div>
+  <span id="connectionStatus" class="fw-semibold" data-i18n="dashboard.connected">Conectado</span>
+  <span class="text-muted" id="lastUpdateTime"></span>
+  <span class="ms-auto d-none d-md-flex align-items-center gap-1" style="font-size:0.75rem; color:#90a4ae;">
+    <i class="bi bi-clock" style="font-size:0.7rem;"></i>
+    <span id="lastDataTime">--</span>
+  </span>
 </div>
 
 <!-- Charts -->
 <div class="row g-4 mb-4">
   <div class="col-md-6">
     <div class="chart-container">
-      <h6 class="mb-3" data-i18n="dashboard.card_temp">Temperatura</h6>
+      <div class="chart-header">
+        <div class="chart-title">
+          <div class="chart-title-icon" style="background:rgba(229,57,53,0.1);color:#e53935;"><i class="bi bi-thermometer-half"></i></div>
+          <span data-i18n="dashboard.card_temp">Temperatura</span>
+        </div>
+      </div>
       <canvas id="temperatureChart"></canvas>
     </div>
   </div>
   <div class="col-md-6">
     <div class="chart-container">
-      <h6 class="mb-3" data-i18n="dashboard.card_hum">Humedad</h6>
+      <div class="chart-header">
+        <div class="chart-title">
+          <div class="chart-title-icon" style="background:rgba(30,136,229,0.1);color:#1e88e5;"><i class="bi bi-droplet-fill"></i></div>
+          <span data-i18n="dashboard.card_hum">Humedad</span>
+        </div>
+      </div>
       <canvas id="humidityChart"></canvas>
     </div>
   </div>
   <div class="col-md-6">
     <div class="chart-container">
-      <h6 class="mb-3" data-i18n="dashboard.card_ammonia">Amoniaco</h6>
+      <div class="chart-header">
+        <div class="chart-title">
+          <div class="chart-title-icon" style="background:rgba(251,140,0,0.1);color:#fb8c00;"><i class="bi bi-exclamation-diamond-fill"></i></div>
+          <span data-i18n="dashboard.card_ammonia">Amoniaco</span>
+        </div>
+      </div>
       <canvas id="ammoniaChart"></canvas>
     </div>
   </div>
   <div class="col-md-6">
     <div class="chart-container">
-      <h6 class="mb-3" data-i18n="dashboard.card_co">CO</h6>
+      <div class="chart-header">
+        <div class="chart-title">
+          <div class="chart-title-icon" style="background:rgba(66,66,66,0.1);color:#424242;"><i class="bi bi-cloud-fog-fill"></i></div>
+          <span data-i18n="dashboard.card_co">CO</span>
+        </div>
+      </div>
       <canvas id="coChart"></canvas>
     </div>
   </div>
   <div class="col-md-6">
     <div class="chart-container">
-      <h6 class="mb-3" data-i18n="dashboard.card_co2">CO₂</h6>
+      <div class="chart-header">
+        <div class="chart-title">
+          <div class="chart-title-icon" style="background:rgba(142,36,170,0.1);color:#8e24aa;"><i class="bi bi-cloud-fog2-fill"></i></div>
+          <span data-i18n="dashboard.card_co2">CO₂</span>
+        </div>
+      </div>
       <canvas id="co2Chart"></canvas>
     </div>
   </div>
+  <div class="col-md-6">
+    <div class="chart-container">
+      <div class="chart-header">
+        <div class="chart-title">
+          <div class="chart-title-icon" style="background:rgba(2,136,209,0.1);color:#0288d1;"><i class="bi bi-circle"></i></div>
+          <span data-i18n="dashboard.card_o2">Oxígeno</span>
+        </div>
+      </div>
+      <canvas id="o2Chart"></canvas>
+    </div>
+  </div>
+  <!-- Gráficas de viento y temp. efectiva: solo visibles con toggle ON -->
+  <div class="col-md-6 chart-wind" style="display:none;">
+    <div class="chart-container">
+      <div class="chart-header">
+        <div class="chart-title">
+          <div class="chart-title-icon" style="background:rgba(84,110,122,0.1);color:#546e7a;"><i class="bi bi-tornado"></i></div>
+          <span data-i18n="dashboard.card_wind">Vel. Viento</span>
+        </div>
+      </div>
+      <canvas id="windChart"></canvas>
+    </div>
+  </div>
+  <div class="col-md-6 chart-wind" style="display:none;">
+    <div class="chart-container">
+      <div class="chart-header">
+        <div class="chart-title">
+          <div class="chart-title-icon" style="background:rgba(0,137,123,0.1);color:#00897b;"><i class="bi bi-thermometer-sun"></i></div>
+          <span data-i18n="dashboard.card_effective_temp">Temp. Efectiva</span>
+        </div>
+      </div>
+      <canvas id="effectiveTempChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Mini alertas activas -->
+<div class="mini-alerts-card mb-4" id="miniAlertsSection" style="display:none;">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h6 class="mb-0 fw-bold"><i class="bi bi-bell-fill text-danger me-2"></i>Alertas del sistema</h6>
+    <a href="/alerts" class="btn btn-sm btn-outline-danger" style="font-size:0.75rem;">Ver todas</a>
+  </div>
+  <div id="miniAlertsList"></div>
 </div>
 
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
@@ -215,6 +360,10 @@
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     initializeDashboard();
+    // Restore wind speed toggle state
+    const windEnabled = localStorage.getItem('wind_speed_enabled') === 'true';
+    document.getElementById('windSpeedToggle').checked = windEnabled;
+    applyWindToggle(windEnabled);
     // Refresh live data every 5 seconds
     setInterval(updateLiveData, 5000);
   });
@@ -241,6 +390,18 @@
       co2Chart.data.datasets[0].label = t('dashboard.chart_co2');
       co2Chart.update('none');
     }
+    if (window.o2Chart) {
+      o2Chart.data.datasets[0].label = t('dashboard.chart_o2');
+      o2Chart.update('none');
+    }
+    if (window.windChart) {
+      windChart.data.datasets[0].label = t('dashboard.chart_wind');
+      windChart.update('none');
+    }
+    if (window.effectiveTempChart) {
+      effectiveTempChart.data.datasets[0].label = t('dashboard.chart_effective_temp');
+      effectiveTempChart.update('none');
+    }
     // Update connection badge text
     const badge = document.getElementById('connectionStatus');
     if (badge) {
@@ -249,29 +410,5 @@
     }
   });
 </script>
-
-<style>
-  .value {
-    font-size: 1.8rem;
-    font-weight: bold;
-    color: #2e7d32;
-  }
-
-  .chart-container {
-    background: white;
-    border-radius: 12px;
-    padding: 20px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  }
-
-  @media (max-width: 768px) {
-    .value {
-      font-size: 1.4rem;
-    }
-    .chart-container {
-      padding: 12px;
-    }
-  }
-</style>
 
 {% endblock %}
