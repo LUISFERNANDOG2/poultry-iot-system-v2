@@ -8,6 +8,10 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="{{ url_for('static', filename='vendor/luxon.min.js') }}"></script>
   <script src="{{ url_for('static', filename='vendor/chartjs-adapter-luxon.min.js') }}"></script>
@@ -19,13 +23,13 @@
     }
 
     body {
-      background-color: #f5f6fa;
-      font-family: "Segoe UI", Arial, sans-serif;
+      background-color: #f3f5f3;
+      font-family: 'Inter', "Segoe UI", Arial, sans-serif;
       overflow-x: hidden;
     }
 
     .topbar {
-      background-color: #2e7d32;
+      background-color: #1b4d1a;
       color: white;
       padding: 10px 20px;
       display: flex;
@@ -37,8 +41,37 @@
       right: 0;
       z-index: 1001;
       height: 60px;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
     }
+    .topbar h5 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      margin: 0;
+    }
+    .topbar-action-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      cursor: pointer;
+      transition: background 0.2s;
+      text-decoration: none;
+    }
+    .topbar-action-btn.alerts {
+      background: #e6b800;
+      color: #1b4d1a;
+    }
+    .topbar-action-btn.alerts:hover { background: #ffd600; }
+    .topbar-action-btn.settings {
+      background: rgba(255,255,255,0.18);
+      color: white;
+    }
+    .topbar-action-btn.settings:hover { background: rgba(255,255,255,0.3); }
 
     .sidebar-toggle {
       display: none;
@@ -52,7 +85,7 @@
     }
 
     .sidebar {
-      background-color: #2e7d32;
+      background: linear-gradient(180deg, #1e5620 0%, #2e7d32 100%);
       color: white;
       height: calc(100vh - 60px);
       padding-top: 20px;
@@ -64,6 +97,7 @@
       z-index: 1000;
       overflow-y: auto;
       transform: translateX(0);
+      border-right: 1px solid rgba(0,0,0,0.1);
     }
 
     .sidebar.collapsed {
@@ -71,19 +105,31 @@
     }
 
     .sidebar a {
-      color: white;
+      color: rgba(255,255,255,0.88);
       text-decoration: none;
       display: block;
-      padding: 12px 20px;
-      margin: 5px 10px;
+      padding: 11px 18px;
+      margin: 3px 10px;
       border-radius: 8px;
-      transition: background-color 0.2s;
+      transition: background-color 0.2s, color 0.2s;
+      font-size: 0.92rem;
+      font-weight: 500;
+      border-left: 3px solid transparent;
     }
 
-    .sidebar a:hover,
-    .sidebar a.active {
-      background-color: #388e3c;
+    .sidebar a:hover {
+      background-color: rgba(255,255,255,0.12);
+      color: #fff;
     }
+
+    .sidebar a.active {
+      background-color: rgba(255,255,255,0.18);
+      color: #fff;
+      border-left: 3px solid #a5d6a7;
+      font-weight: 600;
+    }
+
+    /* Avatar — styles moved to dashboard.css .sidebar-user */
 
     .content {
       margin-left: 250px;
@@ -136,34 +182,31 @@
       }
     }
 
-    /* User Profile Text Limits */
-    #userName {
-      max-width: 150px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    #userRole {
-      max-width: 180px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      display: block;
-    }
+    /* User Profile Text Limits — moved to dashboard.css */
   </style>
 </head>
 
 <body>
 
   <div class="topbar">
-    <button class="sidebar-toggle" onclick="toggleSidebar()" aria-label="Toggle sidebar">
-      <i class="bi bi-list"></i>
-    </button>
-    <h5 data-i18n="app.title">Sistema de Monitoreo de Granjas Avícolas</h5>
-    <div class="d-flex align-items-center gap-3">
-      <span class="d-none d-md-inline"><span data-i18n="app.last_update">Última actualización:</span> <strong id="lastUpdate">--</strong></span>
-      <button class="btn btn-sm btn-outline-light lang-toggle-btn" onclick="toggleLanguage()" title="Switch to English" style="min-width:36px; font-weight:600;">EN</button>
+    <div class="d-flex align-items-center gap-2">
+      <button class="sidebar-toggle" onclick="toggleSidebar()" aria-label="Toggle sidebar">
+        <i class="bi bi-list"></i>
+      </button>
+      <h5 data-i18n="app.title">Sistema de Monitoreo de Granjas Avícolas</h5>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <span class="d-none d-lg-inline text-white-50" style="font-size:0.8rem;">
+        <span data-i18n="app.last_update">Última actualización:</span>
+        <strong id="lastUpdate" class="text-white ms-1">--</strong>
+      </span>
+      <button class="lang-pill" onclick="toggleLanguage()" id="langToggleBtn" title="Cambiar idioma">ES&nbsp;<span style="opacity:.4;">|</span>&nbsp;EN</button>
+      <a href="/alerts" class="topbar-action-btn alerts" title="Alertas">
+        <i class="bi bi-bell-fill"></i>
+      </a>
+      <button class="topbar-action-btn settings" onclick="openProfileSettings()" title="Perfil">
+        <i class="bi bi-gear-fill"></i>
+      </button>
     </div>
   </div>
 
@@ -172,22 +215,16 @@
     id="overlay"></div>
 
   <div class="sidebar" id="sidebar">
-    <div class="text-center mb-4 px-3">
-      <div class="rounded-circle bg-light text-dark mx-auto mb-2" id="userAvatar"
-        style="width:60px; height:60px; display:flex; justify-content:center; align-items:center; overflow:hidden;">
-        <strong id="userInitials">DG</strong>
+    <div class="sidebar-user">
+      <div class="sidebar-avatar" id="userAvatar" onclick="openProfileSettings()" title="Editar perfil">
+        <strong id="userInitials" style="font-size:1.3rem; color:#fff;">DG</strong>
         <img id="userImage" src="" alt="Profile" style="width:100%; height:100%; object-fit:cover; display:none;">
       </div>
-      <div class="d-flex align-items-center justify-content-start gap-1">
-        <button class="btn btn-link text-white" onclick="openProfileSettings()" title="Edit Profile"
-          style="font-size: 1.2rem; min-width: 48px; min-height: 48px; padding: 8px; display: flex; align-items: center; justify-content: center;">
-          <i class="bi bi-gear-fill"></i>
-        </button>
-        <div class="text-start">
-          <div id="userName" title="">...</div>
-          <small id="userRole" title="">...</small>
-        </div>
-      </div>
+      <div class="sidebar-username" id="userName" title="">...</div>
+      <small class="sidebar-userrole" id="userRole" title="">...</small>
+      <button class="sidebar-edit-btn" onclick="openProfileSettings()">
+        <i class="bi bi-pencil me-1"></i>Editar perfil
+      </button>
     </div>
 
     <a href="/dashboard" class="{% if active=='dashboard' %}active{% endif %}"><i class="bi bi-speedometer2 me-2"></i><span data-i18n="nav.dashboard">Dashboard</span></a>
