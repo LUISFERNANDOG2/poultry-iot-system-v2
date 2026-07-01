@@ -609,6 +609,16 @@
       btn.textContent = lang === 'es' ? 'EN' : 'ES';
       btn.title = lang === 'es' ? 'Switch to English' : 'Cambiar a Español';
     });
+    var pill = document.getElementById('langToggleBtn');
+    if (pill) {
+      if (lang === 'es') {
+        pill.innerHTML = '<span style="font-weight:800;color:#fff;">ES</span>&nbsp;<span style="opacity:.35;">|</span>&nbsp;<span style="opacity:.55;font-weight:500;">EN</span>';
+        pill.title = 'Switch to English';
+      } else {
+        pill.innerHTML = '<span style="opacity:.55;font-weight:500;">ES</span>&nbsp;<span style="opacity:.35;">|</span>&nbsp;<span style="font-weight:800;color:#fff;">EN</span>';
+        pill.title = 'Cambiar a Español';
+      }
+    }
 
     document.dispatchEvent(new CustomEvent('langchange', { detail: { lang: lang } }));
   };

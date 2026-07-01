@@ -1,8 +1,9 @@
 // Dashboard JavaScript - (QUERÉTARO VERSION 1.0)
 let temperatureChart, humidityChart, ammoniaChart, coChart, co2Chart;
 let o2Chart, windChart, effectiveTempChart;
-let lastRealUpdate = null;   // Timestamp de la última lectura del sensor (para mostrar en UI)
-let lastApiSuccess = null;   // Momento en que live-data respondió OK (para estado de conexión)
+let lastRealUpdate = null;
+let lastApiSuccess = null;
+let previousLiveData = null;  // Para calcular deltas ▲/▼
 
 // =========================================================
 // CONFIGURACIÓN DE CALIBRACIÓN - QUERÉTARO)
@@ -76,6 +77,73 @@ function saveCalibrationToStorage() {
   localStorage.setItem('ccs811_offset', CCS811_OFFSET);
   localStorage.setItem('mq7_offset', MQ7_OFFSET);
   localStorage.setItem('mq137_offset', MQ137_OFFSET);
+}
+
+// =========================================================
+// DELTA ▲/▼ ENTRE LECTURA ACTUAL Y ANTERIOR
+// =========================================================
+
+function flashValue(elementId) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  el.classList.remove('flash');
+  void el.offsetWidth; // force reflow so animation restarts
+  el.classList.add('flash');
+}
+
+function updateDelta(elementId, current, previous, unit) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  if (current == null || previous == null) {
+    el.innerHTML = '<span class="delta-neutral">—</span>';
+    return;
+  }
+  const diff = current - previous;
+  if (Math.abs(diff) < 0.01) {
+    el.innerHTML = '<span class="delta-neutral">— sin cambio</span>';
+    return;
+  }
+  const sign = diff > 0 ? '▲' : '▼';
+  const cls  = diff > 0 ? 'delta-up' : 'delta-down';
+  el.innerHTML = `<span class="${cls}">${sign} ${Math.abs(diff).toFixed(1)} ${unit}</span>`;
+}
+
+function updateAllDeltas(current, previous) {
+  if (!previous) return;
+  updateDelta('temp_delta',  current.temperatura,      previous.temperatura,      '°C');
+  updateDelta('hum_delta',   current.humedad,          previous.humedad,          '%');
+  updateDelta('nh3_delta',   current.amoniaco,         previous.amoniaco,         'ADC');
+  updateDelta('co_delta',    current.co,               previous.co,               'ADC');
+  updateDelta('co2_delta',   current.co2,              previous.co2,              'ppm');
+  updateDelta('o2_delta',    current.oxigeno,          previous.oxigeno,          '%');
+  updateDelta('wind_delta',  current.velocidad_viento, previous.velocidad_viento, 'm/s');
+}
+
+// =========================================================
+// MINI ALERTAS EN DASHBOARD
+// =========================================================
+
+async function loadMiniAlerts() {
+  try {
+    const res = await fetch(`${getBaseUrl()}/api/alerts?status=active&limit=3`);
+    if (!res.ok) return;
+    const alerts = await res.json();
+    const section = document.getElementById('miniAlertsSection');
+    const list    = document.getElementById('miniAlertsList');
+    if (!section || !list) return;
+
+    if (!alerts.length) { section.style.display = 'none'; return; }
+
+    section.style.display = '';
+    list.innerHTML = alerts.map(a => {
+      const dotClass = a.prioridad === 'critical' ? 'critical' : a.prioridad === 'warning' ? 'warning' : 'info';
+      const ago = formatTimeAgo(new Date(a.timestamp));
+      return `<div class="mini-alert-item">
+        <span class="mini-alert-dot ${dotClass}"></span>
+        <span>${a.mensaje} <span class="text-muted" style="font-size:0.75rem;">— ${ago}</span></span>
+      </div>`;
+    }).join('');
+  } catch (e) { /* silencioso si falla */ }
 }
 
 // =========================================================
@@ -346,10 +414,12 @@ function updateMetricCards(data) {
   // 4. Actualizar DOM con NUEVA ESTRUCTURA
 
   // Temperatura (1 línea)
+  flashValue('temp');
   document.getElementById('temp').textContent =
     (tempVal !== null && tempVal !== undefined) ? tempVal.toFixed(1) + ' °C' : '-- °C';
 
   // Humedad (1 línea)
+  flashValue('hum');
   document.getElementById('hum').textContent =
     (humVal !== null && humVal !== undefined) ? humVal.toFixed(1) + ' %' : '-- %';
 
@@ -357,6 +427,7 @@ function updateMetricCards(data) {
   const co2Element = document.getElementById('co2');
   const co2InfoElement = document.getElementById('co2_info');
 
+  flashValue('co2');
   if (co2Val !== null) {
     const corrected = ccs811Data.co2;
     const original = Math.round(co2Val);
@@ -391,6 +462,7 @@ function updateMetricCards(data) {
   const nh3RawElement = document.getElementById('ammonia_raw');
   const nh3PPMElement = document.getElementById('ammonia_ppm');
 
+  flashValue('ammonia_raw');
   if (nh3Raw !== null) {
     // Línea GRANDE: Valor ADC (RAW)
     nh3RawElement.textContent = nh3Raw.toFixed(0) + ' ADC';
@@ -413,6 +485,7 @@ function updateMetricCards(data) {
   const coRawElement = document.getElementById('co_raw');
   const coPPMElement = document.getElementById('co_ppm');
 
+  flashValue('co_raw');
   if (coRaw !== null) {
     // Línea GRANDE: Valor ADC (RAW)
     coRawElement.textContent = coRaw.toFixed(0) + ' ADC';
@@ -434,6 +507,7 @@ function updateMetricCards(data) {
   // Oxígeno
   const o2Element = document.getElementById('o2');
   if (o2Element) {
+    flashValue('o2');
     const o2Val = data.oxigeno;
     o2Element.textContent = (o2Val !== null && o2Val !== undefined) ? o2Val.toFixed(1) + ' %' : '-- %';
   }
@@ -495,6 +569,7 @@ async function initializeDashboard() {
 
   // Cargar datos iniciales
   loadHistorical("24h");
+  loadMiniAlerts();
 }
 
 // =========================================================
@@ -949,9 +1024,10 @@ async function updateLiveData() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const data = await res.json();
-    // Registrar que la API respondió correctamente (para el estado de conexión)
     lastApiSuccess = Date.now();
 
+    updateAllDeltas(data, previousLiveData);
+    previousLiveData = data;
     updateMetricCards(data);
 
     if (data && data.timestamp) {
@@ -977,31 +1053,33 @@ async function updateLiveData() {
 // =========================================================
 
 setInterval(() => {
-  const status = document.getElementById("connectionStatus");
+  const status  = document.getElementById("connectionStatus");
+  const dot     = document.getElementById("connectionDot");
   const timeAgoEl = document.getElementById("lastUpdateTime");
+  const lastDataTimeEl = document.getElementById("lastDataTime");
 
-  // Usar lastApiSuccess (cuándo respondió live-data) para el badge, no el timestamp del sensor
   if (!lastApiSuccess) {
-    status.className = 'badge bg-secondary';
-    status.textContent = t('dashboard.disconnected');
+    if (status) { status.className = 'fw-semibold text-muted'; status.textContent = t('dashboard.disconnected'); }
+    if (dot)    dot.className = 'live-dot pending';
     if (timeAgoEl) timeAgoEl.textContent = "";
     return;
   }
 
   const secondsSinceApi = (Date.now() - lastApiSuccess) / 1000;
+  const isConnected = secondsSinceApi <= 30;
 
-  if (secondsSinceApi > 30) {
-    status.className = 'badge bg-danger';
-    status.textContent = t('dashboard.disconnected');
-  } else {
-    status.className = 'badge bg-success';
-    status.textContent = t('dashboard.connected');
+  if (status) {
+    status.className = `fw-semibold ${isConnected ? 'text-success' : 'text-danger'}`;
+    status.textContent = isConnected ? t('dashboard.connected') : t('dashboard.disconnected');
   }
+  if (dot) dot.className = `live-dot ${isConnected ? 'connected' : 'disconnected'}`;
 
-  // "Hace X" muestra cuándo fue la última lectura del sensor (solo si hay dato)
   if (timeAgoEl && lastRealUpdate) {
     const sensorDiff = (Date.now() - lastRealUpdate.getTime()) / 1000;
-    timeAgoEl.textContent = sensorDiff > 10 ? `(${formatTimeAgo(lastRealUpdate)})` : '';
+    timeAgoEl.textContent = sensorDiff > 10 ? `· ${formatTimeAgo(lastRealUpdate)}` : '';
+  }
+  if (lastDataTimeEl && lastRealUpdate) {
+    lastDataTimeEl.textContent = lastRealUpdate.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   }
 }, 2000);
 
@@ -1026,6 +1104,9 @@ function createHistoricalStatus() {
 // Live data cada 1 segundo
 // La actualización coincide con el firmware (5s) para ahorrar recursos
 setInterval(updateLiveData, 5000); // 5000ms = 5 segundos
+
+// Mini alertas cada 30 segundos
+setInterval(loadMiniAlerts, 30000);
 
 // Histórico cada 10 segundos
 setInterval(() => {
