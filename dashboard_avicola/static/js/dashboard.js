@@ -1,5 +1,6 @@
 // Dashboard JavaScript - (QUERÉTARO VERSION 1.0)
 let temperatureChart, humidityChart, ammoniaChart, coChart, co2Chart;
+let o2Chart, windChart, effectiveTempChart;
 let lastRealUpdate = null;   // Timestamp de la última lectura del sensor (para mostrar en UI)
 let lastApiSuccess = null;   // Momento en que live-data respondió OK (para estado de conexión)
 
@@ -75,6 +76,57 @@ function saveCalibrationToStorage() {
   localStorage.setItem('ccs811_offset', CCS811_OFFSET);
   localStorage.setItem('mq7_offset', MQ7_OFFSET);
   localStorage.setItem('mq137_offset', MQ137_OFFSET);
+}
+
+// =========================================================
+// TOGGLE DE VELOCIDAD DEL VIENTO
+// =========================================================
+
+function onWindToggle(enabled) {
+  localStorage.setItem('wind_speed_enabled', enabled);
+  applyWindToggle(enabled);
+}
+
+function applyWindToggle(enabled) {
+  document.querySelectorAll('.card-wind').forEach(el => {
+    el.style.display = enabled ? '' : 'none';
+  });
+  document.querySelectorAll('.chart-wind').forEach(el => {
+    el.style.display = enabled ? '' : 'none';
+  });
+
+  if (enabled) {
+    if (!windChart) {
+      windChart = initChart(
+        document.getElementById('windChart'),
+        t('dashboard.chart_wind'),
+        "#6464c8"
+      );
+    }
+    if (!effectiveTempChart) {
+      effectiveTempChart = initChart(
+        document.getElementById('effectiveTempChart'),
+        t('dashboard.chart_effective_temp'),
+        "#0277bd"
+      );
+    }
+    // Rellenar gráficas con datos del último rango si ya hay datos históricos
+    const range = document.getElementById('rangeSelect');
+    if (range) loadHistorical(range.value === 'custom' ? 'custom' : range.value);
+  }
+}
+
+// =========================================================
+// CÁLCULO DE TEMPERATURA EFECTIVA (Steadman Apparent Temperature)
+// AT = Ta + 0.33 * e - 0.70 * WS - 4.00
+// e  = (RH/100) * 6.105 * exp(17.27 * Ta / (237.7 + Ta))
+// =========================================================
+
+function calculateEffectiveTemperature(temp, humidity, windMs) {
+  if (temp == null || humidity == null || windMs == null) return null;
+  const e = (humidity / 100) * 6.105 * Math.exp((17.27 * temp) / (237.7 + temp));
+  const at = temp + 0.33 * e - 0.70 * windMs - 4.00;
+  return Math.round(at * 10) / 10;
 }
 
 // =========================================================
@@ -379,6 +431,29 @@ function updateMetricCards(data) {
     coPPMElement.style.display = 'block';
   }
 
+  // Oxígeno
+  const o2Element = document.getElementById('o2');
+  if (o2Element) {
+    const o2Val = data.oxigeno;
+    o2Element.textContent = (o2Val !== null && o2Val !== undefined) ? o2Val.toFixed(1) + ' %' : '-- %';
+  }
+
+  // Velocidad del viento y temperatura efectiva (solo si toggle está ON)
+  const windEnabled = localStorage.getItem('wind_speed_enabled') === 'true';
+  if (windEnabled) {
+    const windVal = data.velocidad_viento;
+    const windEl = document.getElementById('wind_speed');
+    if (windEl) {
+      windEl.textContent = (windVal !== null && windVal !== undefined) ? windVal.toFixed(1) + ' m/s' : '-- m/s';
+    }
+
+    const effTempEl = document.getElementById('effective_temp');
+    if (effTempEl) {
+      const at = calculateEffectiveTemperature(data.temperatura, data.humedad, windVal);
+      effTempEl.textContent = at !== null ? at.toFixed(1) + ' °C' : '-- °C';
+    }
+  }
+
   // Calibración automática en primera ejecución
   if (!sessionStorage.getItem('auto_calibrated') && coRaw && nh3Raw) {
     calibrateR0FromCleanAir(coRaw, nh3Raw);
@@ -408,12 +483,15 @@ async function initializeDashboard() {
   // Configurar selector de rango
   setupRangeSelector();
 
-  // Inicializar gráficas
+  // Inicializar gráficas siempre visibles
   temperatureChart = initChart(document.getElementById('temperatureChart'), t('dashboard.chart_temp'), "#43a047");
   humidityChart = initChart(document.getElementById('humidityChart'), t('dashboard.chart_hum'), "#1e88e5");
   ammoniaChart = initChart(document.getElementById('ammoniaChart'), t('dashboard.chart_nh3'), "#fb8c00");
   coChart = initChart(document.getElementById('coChart'), t('dashboard.chart_co'), "#43a047");
   co2Chart = initChart(document.getElementById('co2Chart'), t('dashboard.chart_co2'), "#e53935");
+  o2Chart = initChart(document.getElementById('o2Chart'), t('dashboard.chart_o2'), "#0288d1");
+
+  // Gráficas de viento/temp efectiva se crean en applyWindToggle si el toggle está ON
 
   // Cargar datos iniciales
   loadHistorical("24h");
@@ -506,7 +584,7 @@ function initChart(ctx, label, color) {
 
 function clearAllCharts() {
   // Limpiar completamente todas las gráficas
-  const charts = [temperatureChart, humidityChart, ammoniaChart, coChart, co2Chart];
+  const charts = [temperatureChart, humidityChart, ammoniaChart, coChart, co2Chart, o2Chart, windChart, effectiveTempChart];
   
   charts.forEach(chart => {
     if (chart) {
@@ -799,6 +877,19 @@ async function loadHistorical(range, from = null, to = null, clearFirst = false)
     updateChart(ammoniaChart, data.timestamps, data.ammonia);
     updateChart(coChart, data.timestamps, data.co);
     updateChart(co2Chart, data.timestamps, data.co2);
+  }
+  if (o2Chart) {
+    updateChart(o2Chart, data.timestamps, data.oxygen || []);
+  }
+  const windEnabled = localStorage.getItem('wind_speed_enabled') === 'true';
+  if (windEnabled) {
+    if (windChart) updateChart(windChart, data.timestamps, data.wind_speed || []);
+    if (effectiveTempChart && data.temperature && data.humidity && data.wind_speed) {
+      const atSeries = data.timestamps.map((_, i) =>
+        calculateEffectiveTemperature(data.temperature[i], data.humidity[i], data.wind_speed[i])
+      );
+      updateChart(effectiveTempChart, data.timestamps, atSeries);
+    }
   }
 
   setTimeout(() => {

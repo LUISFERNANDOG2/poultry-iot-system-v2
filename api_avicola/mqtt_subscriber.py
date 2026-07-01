@@ -55,7 +55,9 @@ def on_message(client, userdata, message):
                     'humedad': data.get('hum'),
                     'co': data.get('co'),
                     'co2': data.get('co2'),
-                    'amoniaco': data.get('nh3')
+                    'amoniaco': data.get('nh3'),
+                    'oxigeno': data.get('o2'),
+                    'velocidad_viento': data.get('wind')
                 }
 
                 print(f"[JSON] Recibido desde {topic}: {lectura_json}")
@@ -113,6 +115,8 @@ def on_message(client, userdata, message):
                 'co': 0.0,
                 'co2': 0.0,
                 'amoniaco': 0.0,
+                'oxigeno': None,
+                'velocidad_viento': None,
                 'count': 0  # Contador de sensores recibidos
             }
 
@@ -133,6 +137,10 @@ def on_message(client, userdata, message):
         elif sensor_type == 'co2':
             reading['co2'] = value
             reading['count'] += 1
+        elif sensor_type == 'o2':
+            reading['oxigeno'] = value
+        elif sensor_type == 'wind':
+            reading['velocidad_viento'] = value
 
         if reading['count'] >= 5:
             print(f"Sending to API: \n{reading}")

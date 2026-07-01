@@ -64,6 +64,8 @@ class Lectura(db.Model):
     co = db.Column(db.Float)
     co2 = db.Column(db.Float)
     amoniaco = db.Column(db.Float)
+    oxigeno = db.Column(db.Float)
+    velocidad_viento = db.Column(db.Float)
 
 class User(db.Model):
     __tablename__ = 'users'
@@ -136,6 +138,12 @@ with app.app_context():
         ))
         conn.execute(text(
             "CREATE INDEX IF NOT EXISTS ix_lecturas_hora ON lecturas(hora)"
+        ))
+        conn.execute(text(
+            "ALTER TABLE lecturas ADD COLUMN IF NOT EXISTS oxigeno FLOAT"
+        ))
+        conn.execute(text(
+            "ALTER TABLE lecturas ADD COLUMN IF NOT EXISTS velocidad_viento FLOAT"
         ))
         conn.commit()
 
@@ -265,7 +273,9 @@ def insert_lectura():
             humedad=data['humedad'],
             co=data['co'],
             co2=data['co2'],
-            amoniaco=data['amoniaco']
+            amoniaco=data['amoniaco'],
+            oxigeno=data.get('oxigeno'),
+            velocidad_viento=data.get('velocidad_viento')
         )
 
         db.session.add(nueva_lectura)
@@ -306,6 +316,8 @@ def get_lecturas():
             'co': lectura.co,
             'co2': lectura.co2,
             'amoniaco': lectura.amoniaco,
+            'oxigeno': lectura.oxigeno,
+            'velocidad_viento': lectura.velocidad_viento,
             'tvoc': 0,  # TVOC no está en la BD, valor por defecto
             'sync_time': datetime.now().isoformat()
         }]
@@ -336,6 +348,8 @@ def get_live_data():
             'co': lectura.co,
             'co2': lectura.co2,
             'amoniaco': lectura.amoniaco,
+            'oxigeno': lectura.oxigeno,
+            'velocidad_viento': lectura.velocidad_viento,
             'tvoc': 0,  # TVOC no está en la BD, valor por defecto
             'sync_time': datetime.now().isoformat()
         }
@@ -421,9 +435,11 @@ def historical_data():
                 "humidity": [],
                 "ammonia": [],
                 "co": [],
-                "co2": []
+                "co2": [],
+                "oxygen": [],
+                "wind_speed": []
             })
-        
+
         data = {
             "timestamps": [l.hora.isoformat() for l in lecturas],
             "house": [l.modulo for l in lecturas],
@@ -431,7 +447,9 @@ def historical_data():
             "humidity": [l.humedad for l in lecturas],
             "ammonia": [l.amoniaco for l in lecturas],
             "co": [l.co for l in lecturas],
-            "co2": [l.co2 for l in lecturas]
+            "co2": [l.co2 for l in lecturas],
+            "oxygen": [l.oxigeno for l in lecturas],
+            "wind_speed": [l.velocidad_viento for l in lecturas]
         }
         return jsonify(data)
     except Exception as e:

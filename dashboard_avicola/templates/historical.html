@@ -134,6 +134,8 @@
             <th style="cursor:pointer;" onclick="sortTable('nh3')"><span data-i18n="historical.col_nh3">NH3 (ADC)</span> <span id="sort-nh3">↕</span></th>
             <th style="cursor:pointer;" onclick="sortTable('co2')"><span data-i18n="historical.col_co2">CO2 (ppm)</span> <span id="sort-co2">↕</span></th>
             <th style="cursor:pointer;" onclick="sortTable('co')"><span data-i18n="historical.col_co">CO (ADC)</span> <span id="sort-co">↕</span></th>
+            <th style="cursor:pointer;" onclick="sortTable('o2')"><span data-i18n="historical.col_o2">O₂ (%)</span> <span id="sort-o2">↕</span></th>
+            <th style="cursor:pointer;" onclick="sortTable('wind')"><span data-i18n="historical.col_wind">Viento (m/s)</span> <span id="sort-wind">↕</span></th>
           </tr>
         </thead>
         <tbody id="dataTableBody">
@@ -170,6 +172,8 @@
           <button type="button" class="btn btn-outline-primary" data-param="nh3"         onclick="switchChart(this.dataset.param)">NH3</button>
           <button type="button" class="btn btn-outline-primary" data-param="co2"         onclick="switchChart(this.dataset.param)">CO2</button>
           <button type="button" class="btn btn-outline-primary" data-param="co"          onclick="switchChart(this.dataset.param)">CO</button>
+          <button type="button" class="btn btn-outline-primary" data-param="o2"          onclick="switchChart(this.dataset.param)" data-i18n="historical.btn_o2">O₂</button>
+          <button type="button" class="btn btn-outline-primary" data-param="wind"        onclick="switchChart(this.dataset.param)" data-i18n="historical.btn_wind">Viento</button>
         </div>
       </div>
       <canvas id="dataChart"></canvas>
@@ -249,7 +253,7 @@
     }
 
     // Show loading state
-    document.getElementById('dataTableBody').innerHTML = `<tr><td colspan="7" class="text-center">${t('historical.loading')}</td></tr>`;
+    document.getElementById('dataTableBody').innerHTML = `<tr><td colspan="9" class="text-center">${t('historical.loading')}</td></tr>`;
 
     try {
       const res = await fetch(url);
@@ -268,7 +272,9 @@
           humidity: data.humidity[i],
           nh3: data.ammonia[i],
           co2: data.co2[i],
-          co: data.co ? data.co[i] : 0
+          co: data.co ? data.co[i] : null,
+          o2: data.oxygen ? data.oxygen[i] : null,
+          wind: data.wind_speed ? data.wind_speed[i] : null
         };
         return row;
       });
@@ -280,7 +286,7 @@
 
     } catch (err) {
       console.error('Error loading data:', err);
-      document.getElementById('dataTableBody').innerHTML = `<tr><td colspan="7" class="text-center text-danger">${t('historical.error')}: ${err.message}</td></tr>`;
+      document.getElementById('dataTableBody').innerHTML = `<tr><td colspan="9" class="text-center text-danger">${t('historical.error')}: ${err.message}</td></tr>`;
     }
   }
 
@@ -299,7 +305,7 @@
 
     const tbody = document.getElementById('dataTableBody');
     if (pageData.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" class="text-center">${t('historical.empty')}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" class="text-center">${t('historical.empty')}</td></tr>`;
       return;
     }
 
@@ -312,6 +318,8 @@
       <td class="${row.nh3 != null ? getCellClass('amoniaco', row.nh3) : 'status-empty'}">${row.nh3 != null ? row.nh3.toFixed(2) : '-'}</td>
       <td class="${row.co2 != null ? getCellClass('co2', row.co2) : 'status-empty'}">${row.co2 != null ? row.co2.toFixed(0) : '-'}</td>
       <td class="${row.co != null ? getCellClass('co', row.co) : 'status-empty'}">${row.co != null ? row.co.toFixed(2) : '-'}</td>
+      <td class="${row.o2 != null ? 'status-normal' : 'status-empty'}">${row.o2 != null ? row.o2.toFixed(1) : '-'}</td>
+      <td class="${row.wind != null ? 'status-normal' : 'status-empty'}">${row.wind != null ? row.wind.toFixed(1) : '-'}</td>
     </tr>
   `).join('');
 
@@ -408,7 +416,7 @@
     // Filter by search text (other filters are handled by API)
     filteredData = allData.filter(row => {
       if (search) {
-        const searchStr = `${row.house} ${row.temperature} ${row.humidity} ${row.nh3} ${row.co2} ${row.co}`.toLowerCase();
+        const searchStr = `${row.house} ${row.temperature} ${row.humidity} ${row.nh3} ${row.co2} ${row.co} ${row.o2} ${row.wind}`.toLowerCase();
         if (!searchStr.includes(search)) return false;
       }
       return true;
@@ -445,6 +453,8 @@
     else if (parameter === 'nh3')      { key = 'nh3';         color = 'rgba(251, 140, 0, 1)'; }
     else if (parameter === 'co2')      { key = 'co2';         color = 'rgba(229, 57, 53, 1)'; }
     else if (parameter === 'co')       { key = 'co';          color = 'rgba(0, 0, 0, 1)'; }
+    else if (parameter === 'o2')       { key = 'o2';          color = 'rgba(2, 136, 209, 1)'; }
+    else if (parameter === 'wind')     { key = 'wind';        color = 'rgba(100, 100, 200, 1)'; }
     if (!color) color = 'rgba(67, 160, 71, 1)';
 
     // Formato {x: Date, y: valor} para escala de tiempo
@@ -547,7 +557,7 @@
     
     // Create CSV with proper formatting
     const csv = [
-      ['FechaHora', 'Módulo', 'Temperatura (°C)', 'Humedad (%)', 'NH3 (ppm)', 'CO2 (ppm)', 'CO (ppm)', 'Estado'].join(','),
+      ['FechaHora', 'Módulo', 'Temperatura (°C)', 'Humedad (%)', 'NH3 (ppm)', 'CO2 (ppm)', 'CO (ppm)', 'O2 (%)', 'Viento (m/s)'].join(','),
       ...filteredData.map(row => [
         `"${row.timestamp.toISOString()}"`,
         `"${row.house}"`,
@@ -556,7 +566,8 @@
         row.nh3 != null ? row.nh3.toFixed(2) : '',
         row.co2 != null ? row.co2.toFixed(0) : '',
         row.co != null ? row.co.toFixed(2) : '',
-        `"${row.status}"`
+        row.o2 != null ? row.o2.toFixed(1) : '',
+        row.wind != null ? row.wind.toFixed(1) : ''
       ].join(','))
     ].join('\n');
 
