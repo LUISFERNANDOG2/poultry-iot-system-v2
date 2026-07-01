@@ -48,6 +48,9 @@ desktop.ini
 *.swp
 *.swo
 
+# Reference images and binary assets
+Images/
+
 # Local testing files — track scripts but not data files
 local_tests/*
 !local_tests/.gitkeep
