@@ -1,0 +1,14 @@
+# Perfil de granja: el servidor corre dentro de la granja y los nodos ESP32
+# publican por la red local. Solo cambia la exposición del broker MQTTS.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.farm.yml up -d
+#
+# - 8883 (MQTT sobre TLS, con usuario y ACL) queda accesible en la LAN.
+# - 1883 en claro sigue solo dentro del contenedor.
+# - API y tablero siguen en 127.0.0.1; se publican con Nginx (deploy/nginx).
+# Restringe 8883 a la red de la nave con el firewall del equipo (ufw/iptables)
+# y usa una red Wi-Fi dedicada para los nodos (scripts de Modulos_IoT/localap).
+services:
+  mqtt:
+    ports: !override
+      - "0.0.0.0:8883:8883"

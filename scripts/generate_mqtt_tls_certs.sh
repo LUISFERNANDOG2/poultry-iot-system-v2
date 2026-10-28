@@ -2,6 +2,10 @@
 set -Eeuo pipefail
 
 CERT_ROOT="${1:-mosquitto/certs}"
+# Nombres e IPs extra con los que los nodos llegan al broker, separados por
+# coma; por ejemplo, en la granja: MQTT_TLS_IPS=192.168.4.1
+MQTT_TLS_DNS="${MQTT_TLS_DNS:-}"
+MQTT_TLS_IPS="${MQTT_TLS_IPS:-}"
 CA_DIR="$CERT_ROOT/ca"
 BROKER_DIR="$CERT_ROOT/broker"
 
@@ -37,11 +41,18 @@ subjectAltName = @alt_names
 extendedKeyUsage = serverAuth
 
 [alt_names]
-DNS.1 = mqtt
-DNS.2 = localhost
-DNS.3 = poultry.example.org
-IP.1 = 127.0.0.1
 EOF
+
+{
+  n=1
+  for name in mqtt localhost ${MQTT_TLS_DNS//,/ }; do
+    echo "DNS.$n = $name"; n=$((n + 1))
+  done
+  n=1
+  for ip in 127.0.0.1 ${MQTT_TLS_IPS//,/ }; do
+    echo "IP.$n = $ip"; n=$((n + 1))
+  done
+} >> "$BROKER_DIR/openssl.cnf"
 
 openssl req -new \
   -key "$BROKER_DIR/broker.key" \
