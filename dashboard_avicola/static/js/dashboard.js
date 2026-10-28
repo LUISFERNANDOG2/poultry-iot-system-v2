@@ -99,7 +99,8 @@ function updateDelta(elementId, current, previous, unit) {
     return;
   }
   const diff = current - previous;
-  if (Math.abs(diff) < 0.01) {
+  // Mostrado con 1 decimal: por debajo de 0.05 se vería como "▲ 0.0".
+  if (Math.abs(diff) < 0.05) {
     el.innerHTML = '<span class="delta-neutral">— sin cambio</span>';
     return;
   }
