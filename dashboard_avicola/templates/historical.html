@@ -445,6 +445,8 @@
   }
 
   function updateChart() {
+    // i18n dispara 'langchange' al cargar, antes de que exista la gráfica.
+    if (!dataChart) return;
     const chartData = filteredData.slice(0, 1000).reverse();
 
     const activeBtn = document.querySelector('.btn-group .active');
