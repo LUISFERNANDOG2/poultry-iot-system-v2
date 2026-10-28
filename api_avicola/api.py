@@ -125,13 +125,26 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
 environment = os.getenv("FLASK_ENV", "production").lower()
 
-secret_key = os.getenv("SECRET_KEY")
-if not secret_key or len(secret_key) < 32:
-    raise RuntimeError("SECRET_KEY no definida o demasiado corta. Debe tener al menos 32 caracteres.")
+# Prefijos de los valores de ejemplo de .env.example: un despliegue que los
+# copie tal cual no arranca aunque tengan 32 caracteres o más.
+PLACEHOLDER_SECRET_PREFIXES = ("generar", "change_me", "changeme", "replace_me")
 
-ingest_api_key = os.getenv("INGEST_API_KEY")
-if not ingest_api_key or len(ingest_api_key) < 32:
-    raise RuntimeError("INGEST_API_KEY no definida o demasiado corta. Debe tener al menos 32 caracteres.")
+
+def is_placeholder_secret(value):
+    return value.strip().lower().startswith(PLACEHOLDER_SECRET_PREFIXES)
+
+
+def require_secret(name):
+    value = os.getenv(name)
+    if not value or len(value) < 32:
+        raise RuntimeError(f"{name} no definida o demasiado corta. Debe tener al menos 32 caracteres.")
+    if is_placeholder_secret(value):
+        raise RuntimeError(f"{name} conserva el valor de ejemplo de .env.example. Genera uno nuevo.")
+    return value
+
+
+secret_key = require_secret("SECRET_KEY")
+ingest_api_key = require_secret("INGEST_API_KEY")
 
 # Huellas SHA-256 de secretos que estuvieron publicados en el historial del
 # repositorio. Un despliegue que todavía los use no arranca: obliga a rotarlos.
@@ -157,23 +170,9 @@ if is_known_leaked_secret(ingest_api_key):
         "repositorio. Genera una nueva y actualízala en la API y el suscriptor."
     )
 
-security_events_api_key = os.getenv("SECURITY_EVENTS_API_KEY")
-if not security_events_api_key or len(security_events_api_key) < 32:
-    raise RuntimeError(
-        "SECURITY_EVENTS_API_KEY no definida o demasiado corta. "
-        "Debe tener al menos 32 caracteres."
-    )
-
-dashboard_proxy_key = os.getenv("DASHBOARD_PROXY_KEY")
-if not dashboard_proxy_key or len(dashboard_proxy_key) < 32:
-    raise RuntimeError(
-        "DASHBOARD_PROXY_KEY no definida o demasiado corta. "
-        "Debe tener al menos 32 caracteres."
-    )
-
-jwt_secret_key = os.getenv("JWT_SECRET_KEY")
-if not jwt_secret_key or len(jwt_secret_key) < 32:
-    raise RuntimeError("JWT_SECRET_KEY no definida o demasiado corta. Debe tener al menos 32 caracteres.")
+security_events_api_key = require_secret("SECURITY_EVENTS_API_KEY")
+dashboard_proxy_key = require_secret("DASHBOARD_PROXY_KEY")
+jwt_secret_key = require_secret("JWT_SECRET_KEY")
 
 jwt_access_token_expires_minutes = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRES_MINUTES", "60"))
 

@@ -47,6 +47,17 @@ class LeakedSecretGuardTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr[-500:])
 
+    def test_env_example_placeholder_is_refused(self):
+        env = {**os.environ, **BASE_ENV,
+               "INGEST_API_KEY": "a-fresh-ingest-key-0123456789-abcdef",
+               "JWT_SECRET_KEY": "generar_con_python_secrets_token_hex_32"}
+        result = subprocess.run(
+            [sys.executable, "-c", "from api_avicola import api"], cwd=ROOT, env=env,
+            capture_output=True, text=True,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("valor de ejemplo", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
