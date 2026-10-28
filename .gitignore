@@ -30,6 +30,13 @@ mosquitto/config/passwd
 debug/
 backups/
 *.sql
+*.sql.gz
+*.partial
+rclone.conf
+backup.env
+
+# Las migraciones SQL forman parte del código versionado.
+!scripts/migrations/*.sql
 *.dump
 *.bak
 
@@ -47,6 +54,11 @@ desktop.ini
 .idea/
 *.swp
 *.swo
+.~lock.*#
+
+# Local document-generation workspaces
+.codex-doc-*/
+.tmp_*_caps/
 
 # Reference images and binary assets
 Images/
@@ -55,6 +67,29 @@ Images/
 local_tests/*
 !local_tests/.gitkeep
 !local_tests/*.py
+!local_tests/fixtures/
+!local_tests/fixtures/nginx/
+!local_tests/fixtures/nginx/*.conf
 
 # Claude Code session data
 .claude/
+.postman/
+
+# Local MQTT credentials
+mosquitto/config/passwd
+
+# Local MQTT TLS material
+mosquitto/certs/
+.venv-simulator/
+
+# Agente de pentesting (Pentesting/)
+Pentesting/.venv/
+Pentesting/.env
+Pentesting/results/
+Pentesting/reports/
+Pentesting/__pycache__/
+Pentesting/scenarios/__pycache__/
+Pentesting/*.pyc
+docs/evidence/*.patch
+/docs/evidence/
+*.docx
