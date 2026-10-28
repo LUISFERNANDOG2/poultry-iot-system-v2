@@ -384,6 +384,7 @@ class Lectura(db.Model):
     co2 = db.Column(db.Float)
     amoniaco = db.Column(db.Float)
     oxigeno = db.Column(db.Float)
+    velocidad_aire = db.Column(db.Float)
 
 class User(db.Model):
     __tablename__ = 'users'
@@ -1242,6 +1243,7 @@ def check_and_create_alerts():
             'co2': 'CO₂',
             'amoniaco': 'Amoniaco',
             'oxigeno': 'Oxígeno',
+            'velocidad_aire': 'Velocidad del aire',
         }
 
         # Check each parameter
@@ -1252,6 +1254,7 @@ def check_and_create_alerts():
             ('co2', lectura.co2, 'ppm'),
             ('amoniaco', lectura.amoniaco, 'ppm'),
             ('oxigeno', lectura.oxigeno, '% vol.'),
+            ('velocidad_aire', lectura.velocidad_aire, 'm/s'),
         ]
         
         for variable, valor, unidad in checks:
@@ -1330,7 +1333,12 @@ SENSOR_LIMITS = {
     "co2": (400.0, 5000.0),
     "amoniaco": (0.0, 100.0),
     "oxigeno": (0.0, 25.0),
+    "velocidad_aire": (0.0, 30.0),
 }
+
+# Variables que no todos los nodos miden. Si faltan o vienen en null se
+# guardan como NULL; si vienen, se validan igual que las obligatorias.
+OPTIONAL_SENSOR_FIELDS = {"co", "amoniaco", "oxigeno", "velocidad_aire"}
 
 TELEMETRY_MAX_FUTURE_SKEW = timedelta(minutes=5)
 TELEMETRY_MAX_AGE = timedelta(
@@ -1345,10 +1353,7 @@ REQUIRED_LECTURA_FIELDS = [
     "hora",
     "temperatura",
     "humedad",
-    "co",
     "co2",
-    "amoniaco",
-    "oxigeno",
 ]
 
 
@@ -1427,6 +1432,10 @@ def validate_lectura_payload(data):
     }
 
     for field_name, (min_value, max_value) in SENSOR_LIMITS.items():
+        if field_name in OPTIONAL_SENSOR_FIELDS and data.get(field_name) is None:
+            normalized[field_name] = None
+            continue
+
         numeric_value = _parse_sensor_float(data.get(field_name), field_name, errors)
 
         if numeric_value is not None:
@@ -1534,6 +1543,7 @@ def insert_lectura():
             co2=validated_data['co2'],
             amoniaco=validated_data['amoniaco'],
             oxigeno=validated_data["oxigeno"],
+            velocidad_aire=validated_data["velocidad_aire"],
         )
 
         db.session.add(nueva_lectura)
@@ -1604,6 +1614,7 @@ def get_lecturas():
             'co2': lectura.co2,
             'amoniaco': lectura.amoniaco,
             'oxigeno': lectura.oxigeno,
+            'velocidad_aire': lectura.velocidad_aire,
             'tvoc': 0,  # TVOC no está en la BD, valor por defecto
             'sync_time': datetime.now().isoformat()
         }]
@@ -1640,6 +1651,7 @@ def get_live_data():
             'co2': lectura.co2,
             'amoniaco': lectura.amoniaco,
             'oxigeno': lectura.oxigeno,
+            'velocidad_aire': lectura.velocidad_aire,
             'tvoc': 0,  # TVOC no está en la BD, valor por defecto
             'sync_time': datetime.now().isoformat()
         }
@@ -1751,6 +1763,7 @@ def historical_data():
                 "co": [],
                 "co2": [],
                 "oxygen": [],
+                "air_velocity": [],
             })
         
         data = {
@@ -1762,6 +1775,7 @@ def historical_data():
             "co": [l.co for l in lecturas],
             "co2": [l.co2 for l in lecturas],
             "oxygen": [l.oxigeno for l in lecturas],
+            "air_velocity": [l.velocidad_aire for l in lecturas],
         }
         return jsonify(data)
     except Exception as e:

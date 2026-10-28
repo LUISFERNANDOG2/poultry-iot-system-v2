@@ -103,7 +103,11 @@ SENSOR_LIMITS = {
     "co2": (400.0, 5000.0),
     "amoniaco": (0.0, 100.0),
     "oxigeno": (0.0, 25.0),
+    "velocidad_aire": (0.0, 30.0),
 }
+
+# Igual que en la API: variables que no todos los nodos miden.
+OPTIONAL_SENSOR_FIELDS = {"co", "amoniaco", "oxigeno", "velocidad_aire"}
 
 
 def normalize_module_from_topic(topic, expected_channel=None):
@@ -167,6 +171,10 @@ def validate_reading_before_forwarding(reading):
 
     for field_name, (min_value, max_value) in SENSOR_LIMITS.items():
         value = reading.get(field_name)
+
+        if field_name in OPTIONAL_SENSOR_FIELDS and value is None:
+            normalized[field_name] = None
+            continue
 
         if isinstance(value, bool):
             errors.append(f"{field_name} debe ser numérico, no booleano.")
@@ -639,6 +647,9 @@ def on_message(client, userdata, message):
                     "co2": data.get("co2"),
                     "amoniaco": data.get("nh3", data.get("amoniaco")),
                     "oxigeno": data.get("o2", data.get("oxigeno")),
+                    "velocidad_aire": data.get(
+                        "vel", data.get("wind", data.get("velocidad_aire"))
+                    ),
                 }
 
                 validated_reading, validation_errors = (
@@ -719,6 +730,7 @@ def on_message(client, userdata, message):
                 'co2': 0.0,
                 'amoniaco': 0.0,
                 'oxigeno': None,
+                'velocidad_aire': None,
                 'received_sensors': set()  # Tipos de sensor recibidos
             }
 
@@ -742,6 +754,9 @@ def on_message(client, userdata, message):
         elif sensor_type == "o2":
             reading["oxigeno"] = value
             reading["received_sensors"].add(sensor_type)
+        elif sensor_type in ("vel", "velocidad_aire"):
+            # Opcional: no cuenta para completar la lectura.
+            reading["velocidad_aire"] = value
         if len(reading["received_sensors"]) == 6:
             payload_to_validate = {
                 key: reading[key]
@@ -755,6 +770,7 @@ def on_message(client, userdata, message):
                     "co2",
                     "amoniaco",
                     "oxigeno",
+                    "velocidad_aire",
                 )
             }
 

@@ -117,6 +117,7 @@ def build_telemetry():
     carbon_dioxide = 780.0 + 60.0 * math.sin(elapsed / 50) + random.uniform(-10, 10)
     ammonia = 4.0 + random.uniform(-0.25, 0.25)
     oxygen = 20.8 + random.uniform(-0.15, 0.15)
+    air_velocity = max(0.0, 1.2 + 0.4 * math.sin(elapsed / 90) + random.uniform(-0.1, 0.1))
 
     return {
         "id_lectura": f"sim-{MODULE_API}-{int(time.time() * 1000)}",
@@ -127,6 +128,7 @@ def build_telemetry():
         "co2": round(carbon_dioxide, 0),
         "nh3": round(ammonia, 2),
         "o2": round(oxygen, 2),
+        "vel": round(air_velocity, 2),
     }
 
 
