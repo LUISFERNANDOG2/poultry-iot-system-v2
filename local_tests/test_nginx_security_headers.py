@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 import unittest
 
@@ -60,7 +61,8 @@ class NginxSecurityHeaderPolicyTests(unittest.TestCase):
 
     def test_proxy_routes_are_preserved(self):
         expected_routes = (
-            "proxy_pass http://127.0.0.1:5000/api/;",
+            "proxy_pass http://127.0.0.1:5001/api/;",
+            "proxy_pass http://127.0.0.1:5000/;",
             "proxy_pass http://127.0.0.1:5000/lecturas;",
             "proxy_pass http://127.0.0.1:5001/;",
         )
@@ -68,20 +70,21 @@ class NginxSecurityHeaderPolicyTests(unittest.TestCase):
             with self.subTest(route=route):
                 self.assertEqual(self.site.count(route), 1)
 
-    def test_security_events_browser_request_uses_dashboard_session_proxy(self):
+    def test_browser_api_calls_go_through_the_dashboard_session(self):
         https_block, _ = server_blocks(self.site)
-        exact_location = "location = /api/security-events {"
-        dashboard_proxy = (
-            "proxy_pass http://127.0.0.1:5001/api/security-events;"
-        )
-
-        self.assertEqual(https_block.count(exact_location), 1)
-        self.assertEqual(https_block.count(dashboard_proxy), 1)
-        self.assertLess(
-            https_block.index(exact_location),
-            https_block.index("location /api/ {"),
-        )
+        api_location = https_block[https_block.index("location /api/ {"):]
+        api_location = api_location[:api_location.index("}")]
+        self.assertIn("proxy_pass http://127.0.0.1:5001/api/;", api_location)
         self.assertNotIn("location = /api/security-events/ingest", https_block)
+
+    def test_internal_dashboard_headers_are_stripped(self):
+        https_block, _ = server_blocks(self.site)
+        locations = len(re.findall(r"^\s*location ", https_block, re.M))
+        for header in ("X-Dashboard-Proxy-Key", "X-Dashboard-User-Id", "X-Dashboard-Source-IP"):
+            with self.subTest(header=header):
+                self.assertEqual(
+                    https_block.count(f'proxy_set_header {header} "";'), locations
+                )
 
     def test_every_security_header_is_canonical_and_always_enabled(self):
         for directive in EXPECTED_ADD_HEADERS:

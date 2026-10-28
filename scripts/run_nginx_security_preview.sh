@@ -67,22 +67,30 @@ http {
 
         include /etc/nginx/snippets/poultry-security-headers.conf;
 
-        location = /api/security-events {
-            proxy_pass http://dashboard:5001/api/security-events;
+        location /api/ {
+            proxy_pass http://dashboard:5001/api/;
             proxy_http_version 1.1;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
+            # Cabeceras internas dashboard -> API: nunca se aceptan desde fuera.
+            proxy_set_header X-Dashboard-Proxy-Key "";
+            proxy_set_header X-Dashboard-User-Id "";
+            proxy_set_header X-Dashboard-Source-IP "";
         }
 
-        location /api/ {
-            proxy_pass http://api:5000/api/;
+        location /backend/ {
+            proxy_pass http://api:5000/;
             proxy_http_version 1.1;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
+            # Cabeceras internas dashboard -> API: nunca se aceptan desde fuera.
+            proxy_set_header X-Dashboard-Proxy-Key "";
+            proxy_set_header X-Dashboard-User-Id "";
+            proxy_set_header X-Dashboard-Source-IP "";
         }
 
         location /lecturas {
@@ -92,6 +100,10 @@ http {
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
+            # Cabeceras internas dashboard -> API: nunca se aceptan desde fuera.
+            proxy_set_header X-Dashboard-Proxy-Key "";
+            proxy_set_header X-Dashboard-User-Id "";
+            proxy_set_header X-Dashboard-Source-IP "";
         }
 
         location / {
@@ -101,6 +113,10 @@ http {
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
+            # Cabeceras internas dashboard -> API: nunca se aceptan desde fuera.
+            proxy_set_header X-Dashboard-Proxy-Key "";
+            proxy_set_header X-Dashboard-User-Id "";
+            proxy_set_header X-Dashboard-Source-IP "";
         }
     }
 }
