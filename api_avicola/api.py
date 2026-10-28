@@ -132,6 +132,30 @@ ingest_api_key = os.getenv("INGEST_API_KEY")
 if not ingest_api_key or len(ingest_api_key) < 32:
     raise RuntimeError("INGEST_API_KEY no definida o demasiado corta. Debe tener al menos 32 caracteres.")
 
+# Huellas SHA-256 de secretos que estuvieron publicados en el historial del
+# repositorio. Un despliegue que todavía los use no arranca: obliga a rotarlos.
+# LEAKED_SECRET_SHA256 (separadas por coma) agrega huellas de llaves retiradas.
+KNOWN_LEAKED_SECRET_SHA256 = {
+    # INGEST_API_KEY publicada en .env.example (junio de 2026)
+    "54d6c557aa9769e898c60aa31265bf6da277298cf27196378763d795ae3240c3",
+} | {
+    digest.strip().lower()
+    for digest in os.getenv("LEAKED_SECRET_SHA256", "").split(",")
+    if digest.strip()
+}
+
+
+def is_known_leaked_secret(value):
+    digest = hashlib.sha256(value.encode("utf-8")).hexdigest()
+    return digest in KNOWN_LEAKED_SECRET_SHA256
+
+
+if is_known_leaked_secret(ingest_api_key):
+    raise RuntimeError(
+        "INGEST_API_KEY coincide con una llave publicada en el historial del "
+        "repositorio. Genera una nueva y actualízala en la API y el suscriptor."
+    )
+
 security_events_api_key = os.getenv("SECURITY_EVENTS_API_KEY")
 if not security_events_api_key or len(security_events_api_key) < 32:
     raise RuntimeError(
