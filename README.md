@@ -1,38 +1,145 @@
 # Poultry IoT System V2
 
-Clean local Docker baseline for the poultry IoT monitoring system.
+Environmental monitoring for broiler houses, hardened against the NIST CSF 2.0
+outcomes that apply to a small farm deployment.
 
-This repository is intentionally local-only. It does not include production tunnels, private keys, real `.env` files, or deployment certificates.
+ESP32 sensor nodes publish JSON over MQTT with TLS. A subscriber validates each
+message and forwards it to a Flask API, which stores readings in PostgreSQL. A
+Flask dashboard shows live values, history and alerts. Nginx is the only public
+entry point; every other port binds to `127.0.0.1`.
 
-## Services
+```
+ESP32 node --MQTTS 8883--> Mosquitto --> subscriber --POST /lecturas--> API --> PostgreSQL
+                                                                         ^
+                       browser --HTTPS--> Nginx --> dashboard (proxy) ---+
+```
 
-- PostgreSQL: internal Docker database
-- Mosquitto: local MQTT broker on `localhost:1883`
-- API: `http://localhost:5000`
-- Dashboard: `http://localhost:5001`
-- MQTT subscriber: consumes local MQTT messages and posts readings to the API
+| Component | Path | Notes |
+|---|---|---|
+| API | `api_avicola/api.py` | JWT and session auth, RBAC (`admin`, `operador`, `visor`), TOTP MFA for admins, persistent lockout, audit log, alerts |
+| MQTT subscriber | `api_avicola/mqtt_subscriber.py` | Validates topic and payload, queue with retry, node status and heartbeat |
+| Dashboard | `dashboard_avicola/` | Server-rendered Flask; front-end libraries are vendored (no CDN) |
+| Broker | `mosquitto/config/` | Username and password, per-user ACL, MQTTS on 8883 |
+| Reverse proxy | `deploy/nginx/` | TLS, security headers, strips internal proxy headers |
+| Node firmware | `Modulos_IoT/firmware_modulo_iot_json/` | ESP32: MQTTS, NTP time, contract keys |
+| Node simulator | `scripts/simulate_raspberry_node.py` | Publishes contract-valid telemetry over MQTTS |
+| Pentest harness | `Pentesting/` | Scenarios T01-T16, baseline (E0) versus hardened (E1) |
+| Tests | `local_tests/` | `python -m pytest -q local_tests` (real SQLite schema, no database mocks) |
 
-## Local Setup
+## Telemetry contract
 
-1. Create your private environment file:
+Topic `sensor/modulo<N>/data` (stored as module `M<N>`), JSON payload:
+
+| Key | Unit | Range | Required |
+|---|---|---|---|
+| `id_lectura` | text, unique | up to 100 chars | yes |
+| `hora` | ISO 8601 UTC | not older than 24 h, not more than 5 min ahead | yes |
+| `temp` | °C | -40 to 125 | yes |
+| `hum` | % | 0 to 100 | yes |
+| `co2` | ppm | 400 to 5000 | yes |
+| `co` | ppm | 0 to 500 | no |
+| `nh3` | ppm | 0 to 100 | no |
+| `o2` | % vol. | 0 to 25 | no |
+| `vel` (or `wind`) | m/s | 0 to 30 | no |
+
+Optional keys may be missing or `null`. A value outside its range rejects the
+whole reading. Nodes also publish `online`/`offline` (retained, with LWT) to
+`sensor/modulo<N>/status` and `{"timestamp", "uptime_seconds"}` to
+`sensor/modulo<N>/heartbeat`.
+
+## Quick start (Docker Compose)
+
+Requirements: Docker Engine with Compose v2.24 or later, OpenSSL.
+
+1. Create the environment file and replace every placeholder. The API refuses
+   to start with placeholder or known-leaked secrets.
 
    ```bash
    cp .env.example .env
+   python3 -c 'import secrets; print(secrets.token_hex(32))'   # SECRET_KEY, JWT_SECRET_KEY, INGEST_API_KEY
+   python3 -c 'import secrets; print(secrets.token_urlsafe(48))' # SECURITY_EVENTS_API_KEY, DASHBOARD_PROXY_KEY
+   python3 -c 'import base64,secrets; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())'  # MFA_ENCRYPTION_KEY
    ```
 
-2. Edit `.env` and replace the placeholder values.
-
-3. Start the local stack:
+2. Create the broker certificates and the MQTT users. Add the names or
+   addresses the nodes will use to reach the broker.
 
    ```bash
-   docker compose up --build
+   MQTT_TLS_IPS=10.42.0.1 scripts/generate_mqtt_tls_certs.sh
+   docker run --rm -v "$PWD/mosquitto/config:/mosquitto/config" eclipse-mosquitto:2 \
+     mosquitto_passwd -b -c /mosquitto/config/passwd mqtt_sensor_user '<MQTT_PASSWORD>'
+   docker run --rm -v "$PWD/mosquitto/config:/mosquitto/config" eclipse-mosquitto:2 \
+     mosquitto_passwd -b /mosquitto/config/passwd mqtt_subscriber_user '<MQTT_SUBSCRIBER_PASSWORD>'
    ```
 
-4. Open the dashboard:
+3. Start the stack and create the first administrator. There are no default
+   accounts. The administrator enrols TOTP at first login and creates the
+   other users from the dashboard.
 
-   ```text
-   http://localhost:5001
+   ```bash
+   docker compose up -d --build
+   docker compose exec api flask --app api_avicola.api:app create-admin --username <name>
    ```
+
+4. Existing databases only: apply the SQL migrations in order.
+
+   ```bash
+   for f in scripts/migrations/*.sql; do
+     docker compose exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" < "$f"
+   done
+   ```
+
+5. Publish through Nginx with `deploy/nginx/poultry-api.conf` (see
+   [Nginx security headers](docs/nginx-security-headers.md)). The browser
+   reaches the dashboard at `/`; the dashboard proxies its `/api/` calls to the
+   API. `/backend/` exposes the API itself for clients and for the pentest
+   harness.
+
+### Farm profile
+
+When the server runs inside the farm and the nodes publish over the local
+network, add the farm override. It publishes only MQTTS (8883) on the LAN; the
+API and dashboard stay behind Nginx.
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.farm.yml up -d
+```
+
+`Modulos_IoT/localap/` configures a dedicated Wi-Fi access point for the nodes.
+Restrict 8883 to that network with the host firewall.
+
+## Nodes
+
+**Simulator.** Useful for end-to-end tests without hardware:
+
+```bash
+MQTT_BROKER=localhost MQTT_USERNAME=mqtt_sensor_user MQTT_PASSWORD='<...>' \
+MQTT_TLS_CA_CERT=mosquitto/certs/broker/ca.crt SIMULATOR_MODULE=modulo1 \
+python scripts/simulate_raspberry_node.py
+```
+
+**ESP32 firmware.** Copy `config.example.h` to `config.h` (ignored by git),
+fill in Wi-Fi, broker address, MQTT credentials and the CA certificate, and
+build with the Arduino ESP32 core and the libraries listed in the sketch
+header. Gas channels without a calibration value are sent as `null`, so raw
+ADC counts never reach the database as ppm. The CCS811 reports equivalent CO2
+estimated from VOCs, not an NDIR measurement.
+
+## Security evaluation
+
+`Pentesting/` contains the harness used for the E0/E1 comparison. See
+[Pentesting/README.md](Pentesting/README.md) for the scenarios, the dedicated
+test accounts and the pacing needed for the login rate limit:
+
+```bash
+cd Pentesting && cp .env.example .env   # point it at your own test deployment only
+PENTEST_LOGIN_PAUSE=6.5 python runner.py --env E1 --reps 30 --cooldown 61
+python report.py
+```
+
+## Citation and license
+
+See [CITATION.cff](CITATION.cff) and [LICENSE](LICENSE).
 
 ## Repository Hygiene
 

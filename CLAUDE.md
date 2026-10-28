@@ -19,7 +19,7 @@ Deployment context: Querétaro, México, 1,820 m above sea level.
 
 | Layer | Technology |
 |---|---|
-| Node firmware | ESP32 + ArduinoJson (`Modulos_IoT/`) |
+| Node firmware | ESP32 + PubSubClient + ArduinoJson 7, config in `config.h` (`Modulos_IoT/`) |
 | Broker | Eclipse Mosquitto 2: auth + ACL, MQTTS on 8883, 1883 only on the container's localhost |
 | API | Flask + SQLAlchemy on Gunicorn, port 5000 |
 | Dashboard | Flask (server-rendered) + Bootstrap 5.3 + Chart.js 4.4 + Luxon + flatpickr, port 5001 |
@@ -77,9 +77,11 @@ Topic `sensor/<modulo>/data`, JSON keys:
 Optional values may be missing or `null`. The API also checks a 24 h freshness
 window, a 5 min future skew, finite numbers and a unique `id_lectura`.
 
-Gas values must arrive in ppm. The reference firmware in `Modulos_IoT/` still
-sends raw ADC counts from MQ sensors and has no MQTT auth/TLS; it is not
-compatible with the hardened contract until it is updated.
+Gas values must arrive in ppm. The firmware in `Modulos_IoT/` follows this
+contract (MQTTS, NTP time, `id_lectura`, LWT, heartbeat) and sends `null` for
+any gas channel whose calibration constant in `config.h` is still 0, and for
+any optional value outside its range (one out-of-range value rejects the whole
+reading). It has not been compiled in CI; build it with the Arduino ESP32 core.
 
 ## Roles
 
