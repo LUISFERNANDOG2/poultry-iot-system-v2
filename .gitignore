@@ -93,3 +93,6 @@ Pentesting/*.pyc
 docs/evidence/*.patch
 /docs/evidence/
 *.docx
+
+# Configuración local del firmware (credenciales Wi-Fi/MQTT y CA)
+Modulos_IoT/**/config.h

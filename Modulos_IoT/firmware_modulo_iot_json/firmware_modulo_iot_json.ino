@@ -1,374 +1,308 @@
 /* ============================================================================
- * Autor: Luis Fernando González González
- * Fecha de edición: Junio de 2025
- * Reedición: Noviembre de 2025
- * Modificado: Diciembre 2025 - JSON MQTT Implementation
+ * Firmware del nodo ambiental (ESP32) — contrato de telemetría v1
+ * Autores: Luis Fernando González González, Isaac Castro Islas
  *
- * Archivo: firmware_modulo_iot_json.ino
- * Descripción: Firmware para ESP32 que monitorea temperatura, humedad, CO, NH3 y CO2,
- *   enviando los datos mediante protocolo MQTT en formato JSON a un servidor para su análisis.
- * Proyecto: Plataforma de monitoreo ambiental y predicción 
- *           para bienestar avícola basada en IoT y aprendizaje automático
+ * Publica en MQTT sobre TLS (8883) con usuario y contraseña:
+ *   sensor/modulo<N>/data       JSON con id_lectura, hora (UTC) y variables
+ *   sensor/modulo<N>/status     "online"/"offline" retenido (LWT)
+ *   sensor/modulo<N>/heartbeat  {"timestamp","uptime_seconds"}
+ *
+ * Contrato (CLAUDE.md, "Telemetry contract"):
+ *   temp °C, hum %, co2 ppm son obligatorios; co, nh3 (ppm), o2 (% vol.)
+ *   y vel (m/s) son opcionales y se envían null si no hay sensor, si no están
+ *   calibrados o si salen del rango del contrato. Un valor opcional fuera de
+ *   rango haría que el suscriptor descarte toda la lectura, por eso se
+ *   anula aquí.
+ *
+ * Configuración: copiar config.example.h como config.h.
+ * Bibliotecas: DHT sensor library, Adafruit CCS811, PubSubClient, ArduinoJson 7.
  * ============================================================================
  */
 
-#include <DHT.h>
-#include <Wire.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <PubSubClient.h>
-#include "Adafruit_CCS811.h"
 #include <ArduinoJson.h>
+#include <Wire.h>
+#include <DHT.h>
+#include <math.h>
+#include <time.h>
+#include "Adafruit_CCS811.h"
 
-// =============================
-// CONFIGURACIÓN Wi-Fi
-// =============================
+#include "config.h"
 
-const char* ssid = "YOUR_LOCAL_WIFI_SSID";
-const char* password = "YOUR_LOCAL_WIFI_PASSWORD";
+// ---------- Tópicos ----------
+static char topicData[48];
+static char topicStatus[48];
+static char topicHeartbeat[48];
+static char clientId[40];
 
-// Example: const char* ssid = "YourHomeNetwork";
-// Example: const char* password = "YourHomeNetworkPassword";
+// ---------- Límites del contrato ----------
+struct Range { float minV; float maxV; };
+static const Range R_TEMP = {-40.0f, 125.0f};
+static const Range R_HUM  = {0.0f, 100.0f};
+static const Range R_CO2  = {400.0f, 5000.0f};
+static const Range R_CO   = {0.0f, 500.0f};
+static const Range R_NH3  = {0.0f, 100.0f};
+static const Range R_O2   = {0.0f, 25.0f};
+static const Range R_VEL  = {0.0f, 30.0f};
 
-// Configuración MQTT local
-// Use the IP address of the machine running Docker on your local network.
-
-// MQTT server local
-const char* mqtt_server = "192.168.1.100";
-
-// Nuevo topic único para JSON
-const char* topic_data = "sensor/modulo1/data";
-
-// =============================
-// CONFIGURACIÓN DE SENSORES
-// =============================
-
-#define DHTPIN 4
-#define DHTTYPE DHT22
-DHT dht(DHTPIN, DHTTYPE);
-
-int mq7_pin  = 32;
-int mq137_pin = 33;
-int o2_pin = 34;       // Grove O2 sensor (analógico)
-int wind_pin = 35;     // Anemómetro (analógico, señal 0–3.3V)
-
+// ---------- Hardware ----------
+DHT dht(DHT_PIN, DHT22);
 Adafruit_CCS811 ccs;
-bool ccs811_initialized = false;
+bool ccsReady = false;
 
-WiFiClient espClient;
-PubSubClient client(espClient);
+WiFiClientSecure tlsClient;
+PubSubClient mqtt(tlsClient);
 
-// Variables para debugging
-unsigned long lastDebugTime = 0;
-const int DEBUG_INTERVAL = 10000; // Debug cada 10 segundos
-unsigned long lastSendTime = 0;
-// INTERVALO DE ENVIO DE DATOS LOCAL
-// 5000ms = 5 segundos
-const int SEND_INTERVAL = 5000;
+unsigned long lastTelemetry = 0;
+unsigned long lastHeartbeat = 0;
+unsigned long lastMqttAttempt = 0;
+uint32_t sequence = 0;
 
-// Contadores para diagnóstico
-int successfulReads = 0;
-int failedReads = 0;
-int zeroReadings = 0;
+// ============================================================================
+// Utilidades
+// ============================================================================
+static bool inRange(float v, const Range& r) {
+    return isfinite(v) && v >= r.minV && v <= r.maxV;
+}
 
-// ===========================================================
-// FUNCIÓN: ESCANEAR REDES Y MOSTRAR LISTA
-// ===========================================================
-void scan_networks() {
-    Serial.println("\nBuscando redes Wi-Fi...");
-    
-    int n = WiFi.scanNetworks();
-    if (n == 0) {
-        Serial.println("No se detectó ninguna red.");
+static void setOptional(JsonDocument& doc, const char* key, float v, const Range& r, int decimals) {
+    if (inRange(v, r)) {
+        float p = powf(10.0f, decimals);
+        doc[key] = roundf(v * p) / p;
+    } else {
+        doc[key] = nullptr;
+    }
+}
+
+static bool clockIsValid() {
+    return time(nullptr) > 1704067200;  // 2024-01-01T00:00:00Z
+}
+
+static void isoUtcNow(char* out, size_t len) {
+    time_t now = time(nullptr);
+    struct tm t;
+    gmtime_r(&now, &t);
+    strftime(out, len, "%Y-%m-%dT%H:%M:%SZ", &t);
+}
+
+// ============================================================================
+// Red
+// ============================================================================
+static void ensureWifi() {
+    if (WiFi.status() == WL_CONNECTED) return;
+
+    Serial.printf("[WIFI] Conectando a %s", WIFI_SSID);
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+    unsigned long start = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - start < 30000UL) {
+        delay(500);
+        Serial.print('.');
+    }
+    if (WiFi.status() == WL_CONNECTED) {
+        Serial.printf("\n[WIFI] IP %s RSSI %d dBm\n",
+                      WiFi.localIP().toString().c_str(), WiFi.RSSI());
+    } else {
+        Serial.println("\n[WIFI] Sin conexión; se reintenta en el siguiente ciclo");
+    }
+}
+
+static void ensureClock() {
+    if (clockIsValid()) return;
+
+    configTime(0, 0, NTP_SERVER_1, NTP_SERVER_2);
+    Serial.print("[NTP] Sincronizando");
+    unsigned long start = millis();
+    while (!clockIsValid() && millis() - start < 20000UL) {
+        delay(500);
+        Serial.print('.');
+    }
+    Serial.println(clockIsValid() ? " ok" : " sin hora; no se publicará telemetría");
+}
+
+static void ensureMqtt() {
+    if (mqtt.connected()) return;
+    if (WiFi.status() != WL_CONNECTED || !clockIsValid()) return;
+    if (millis() - lastMqttAttempt < 5000UL) return;
+    lastMqttAttempt = millis();
+
+    Serial.printf("[MQTT] Conectando a %s:%d como %s... ", MQTT_HOST, MQTT_PORT, clientId);
+    bool ok = mqtt.connect(
+        clientId,
+        MQTT_USERNAME, MQTT_PASSWORD,
+        topicStatus, 1, true, "offline",   // LWT retenido
+        true);                              // clean session
+    if (ok) {
+        Serial.println("ok");
+        mqtt.publish(topicStatus, "online", true);
+    } else {
+        // -2: TCP/TLS (CA, nombre del certificado o puerto); 4/5: usuario o ACL.
+        Serial.printf("error rc=%d\n", mqtt.state());
+    }
+}
+
+// ============================================================================
+// Sensores
+// ============================================================================
+static float readMilliVolts(int pin) {
+    uint32_t sum = 0;
+    for (int i = 0; i < 16; i++) {
+        sum += analogReadMilliVolts(pin);
+        delay(2);
+    }
+    return sum / 16.0f;
+}
+
+// Rs a partir de la tensión en la resistencia de carga del módulo MQ.
+static float mqRs(int pin) {
+    float vOut = readMilliVolts(pin) * MQ_DIVIDER_RATIO;
+    if (vOut <= 1.0f || vOut >= MQ_SUPPLY_MV) return NAN;
+    return MQ_RL_OHMS * (MQ_SUPPLY_MV - vOut) / vOut;
+}
+
+static float mqPpm(int pin, float r0, float a, float b) {
+    if (r0 <= 0.0f) return NAN;  // sin calibrar: null
+    float rs = mqRs(pin);
+    if (!isfinite(rs)) return NAN;
+    return a * powf(rs / r0, b);
+}
+
+static float readO2Percent() {
+    if (O2_AIR_MV <= 0.0f) return NAN;  // sin calibrar: null
+    return readMilliVolts(O2_PIN) * 20.9f / O2_AIR_MV;
+}
+
+static float readWindMs() {
+    float mv = readMilliVolts(WIND_PIN);
+    if (mv < WIND_MIN_MV * 0.9f) return NAN;  // sensor desconectado
+    float ms = (mv - WIND_MIN_MV) * WIND_MAX_MS / (WIND_MAX_MV - WIND_MIN_MV);
+    return ms < 0.0f ? 0.0f : ms;
+}
+
+// ============================================================================
+// Publicación
+// ============================================================================
+static void publishTelemetry() {
+    float temp = dht.readTemperature();
+    float hum = dht.readHumidity();
+
+    float co2 = NAN;
+    if (ccsReady) {
+        if (inRange(temp, R_TEMP) && inRange(hum, R_HUM)) {
+            ccs.setEnvironmentalData(hum, temp);
+        }
+        if (ccs.available() && !ccs.readData()) {
+            co2 = ccs.geteCO2();
+        }
+    }
+
+    // Obligatorios: sin ellos el suscriptor rechaza la lectura, así que no se envía.
+    if (!inRange(temp, R_TEMP) || !inRange(hum, R_HUM) || !inRange(co2, R_CO2)) {
+        Serial.printf("[DATA] Lectura omitida: temp=%.1f hum=%.1f co2=%.0f\n", temp, hum, co2);
         return;
     }
 
-    Serial.printf("Se detectaron %d redes:\n", n);
-    for (int i = 0; i < n; i++) {
-        Serial.printf("  %d) SSID: %s | RSSI: %d dBm | Canal: %d | Encriptada: %s\n",
-            i + 1,
-            WiFi.SSID(i).c_str(),
-            WiFi.RSSI(i),
-            WiFi.channel(i),
-            (WiFi.encryptionType(i) == WIFI_AUTH_OPEN) ? "No" : "Sí"
-        );
+    char hora[25];
+    isoUtcNow(hora, sizeof(hora));
+
+    char idLectura[64];
+    snprintf(idLectura, sizeof(idLectura), "M%d-%lu-%lu",
+             MODULE_NUMBER, (unsigned long)time(nullptr), (unsigned long)sequence++);
+
+    JsonDocument doc;
+    doc["id_lectura"] = idLectura;
+    doc["hora"] = hora;
+    doc["temp"] = roundf(temp * 10.0f) / 10.0f;
+    doc["hum"] = roundf(hum * 10.0f) / 10.0f;
+    doc["co2"] = roundf(co2);
+
+    setOptional(doc, "co",  HAS_MQ7   ? mqPpm(MQ7_PIN, MQ7_R0_OHMS, MQ7_CURVE_A, MQ7_CURVE_B) : NAN, R_CO, 1);
+    setOptional(doc, "nh3", HAS_MQ137 ? mqPpm(MQ137_PIN, MQ137_R0_OHMS, MQ137_CURVE_A, MQ137_CURVE_B) : NAN, R_NH3, 1);
+    setOptional(doc, "o2",  HAS_O2    ? readO2Percent() : NAN, R_O2, 1);
+    setOptional(doc, "vel", HAS_WIND  ? readWindMs() : NAN, R_VEL, 2);
+
+    char payload[320];
+    size_t n = serializeJson(doc, payload, sizeof(payload));
+    if (n == 0 || n >= sizeof(payload)) {
+        Serial.println("[DATA] JSON demasiado grande");
+        return;
     }
-    Serial.println();
+
+    bool ok = mqtt.publish(topicData, payload);
+    Serial.printf("[DATA] %s %s\n", ok ? "enviado" : "ERROR", payload);
 }
 
-// ===========================================================
-// FUNCIÓN: INTENTAR CONECTAR A LA RED DURANTE 60 SEGUNDOS
-// ===========================================================
-bool try_connect_wifi() {
-    WiFi.begin(ssid, password);
-    Serial.println("Intentando conectar...");
+static void publishHeartbeat() {
+    char ts[25];
+    isoUtcNow(ts, sizeof(ts));
 
-    unsigned long start = millis();
+    JsonDocument doc;
+    doc["timestamp"] = ts;
+    doc["uptime_seconds"] = millis() / 1000UL;
 
-    while (WiFi.status() != WL_CONNECTED) {
-        Serial.print(".");
-        delay(1000);
-
-        if (millis() - start > 60000) {  // 60 segundos
-            Serial.println("\nNo se pudo conectar en 60 segundos");
-            return false;
-        }
-    }
-
-    Serial.println("\n¡Conectado a Wi-Fi!");
-    Serial.print("IP asignada: ");
-    Serial.println(WiFi.localIP());
-    return true;
+    char payload[96];
+    serializeJson(doc, payload, sizeof(payload));
+    mqtt.publish(topicHeartbeat, payload);
 }
 
-// ===========================================================
-// FUNCIÓN PRINCIPAL DE CONEXIÓN WiFi CON REINTENTOS
-// ===========================================================
-void setup_wifi() {
-    WiFi.mode(WIFI_STA);
-
-    while (true) {
-        scan_networks();
-
-        if (try_connect_wifi()) {
-            break;  // conexión exitosa
-        }
-
-        Serial.println("Reintentando...\n");
-        delay(1000);
-    }
-}
-
-// ===========================================================
-// MQTT RECONNECT
-// ===========================================================
-void reconnect() {
-    while (!client.connected()) {
-        Serial.print("Conectando a MQTT... ");
-        if (client.connect("ESP32Client")) {
-            Serial.println("Conectado!");
-            Serial.println("Enviando datos a topic: " + String(topic_data));
-        } else {
-            Serial.print("Error rc=");
-            Serial.print(client.state());
-            Serial.println(" -> Reintentando");
-            delay(1000);
-        }
-    }
-}
-
-// ===========================================================
-// FUNCIÓN: LEER TODOS LOS SENSORES Y CREAR JSON
-// ===========================================================
-String createSensorJSON() {
-    // Crear documento JSON
-    StaticJsonDocument<384> doc;
-    
-    
-    // Variables para validación
-    bool hasValidData = false;
-    
-    // Leer DHT22
-    float temperature = dht.readTemperature();
-    float humidity = dht.readHumidity();
-    
-    if (!isnan(temperature) && !isnan(humidity)) {
-        doc["temp"] = round(temperature * 10) / 10;  // 1 decimal
-        doc["hum"] = round(humidity * 10) / 10;      // 1 decimal
-        hasValidData = true;
-    } else {
-        doc["temp"] = nullptr;
-        doc["hum"] = nullptr;
-        failedReads++;
-    }
-    
-    // Leer MQ-7 (CO)
-    int coRaw = analogRead(mq7_pin);
-    doc["co_raw"] = coRaw;
-    
-    // Validar lectura del MQ-7
-    if (coRaw >= 10 && coRaw <= 4000) {
-        doc["co"] = coRaw;  // Enviamos el valor RAW para procesamiento en el dashboard
-        hasValidData = true;
-        successfulReads++;
-    } else {
-        doc["co"] = nullptr;
-        if (coRaw < 10) zeroReadings++;
-        failedReads++;
-    }
-    
-    // Leer MQ-137 (NH3)
-    int nh3Raw = analogRead(mq137_pin);
-    doc["nh3_raw"] = nh3Raw;
-    
-    // Validar lectura del MQ-137
-    if (nh3Raw >= 10 && nh3Raw <= 4000) {
-        doc["nh3"] = nh3Raw;  // Enviamos el valor RAW para procesamiento en el dashboard
-        hasValidData = true;
-        successfulReads++;
-    } else {
-        doc["nh3"] = nullptr;
-        if (nh3Raw < 10) zeroReadings++;
-        failedReads++;
-    }
-    
-    // Leer CCS811 (CO2)
-    if (ccs811_initialized && ccs.available() && !ccs.readData()) {
-        int co2Value = ccs.geteCO2();
-        int tvocValue = ccs.getTVOC();
-        doc["co2"] = co2Value;
-        doc["tvoc"] = tvocValue;
-        hasValidData = true;
-        successfulReads++;
-    } else {
-        doc["co2"] = nullptr;
-        doc["tvoc"] = nullptr;
-        failedReads++;
-    }
-    
-    // Leer sensor de oxígeno (Grove O2 - analógico 0–3.3V → 0–25%)
-    int o2Raw = analogRead(o2_pin);
-    if (o2Raw >= 10 && o2Raw <= 4095) {
-        float o2Pct = (o2Raw / 4095.0) * 25.0;  // Grove O2: 0V=0%, 3.3V=25%
-        doc["o2"] = round(o2Pct * 10) / 10;
-        hasValidData = true;
-    } else {
-        doc["o2"] = nullptr;
-    }
-
-    // Leer anemómetro (señal analógica 0–3.3V → 0–32.4 m/s)
-    int windRaw = analogRead(wind_pin);
-    if (windRaw >= 0 && windRaw <= 4095) {
-        float windMs = (windRaw / 4095.0) * 32.4;
-        doc["wind"] = round(windMs * 10) / 10;
-        hasValidData = true;
-    } else {
-        doc["wind"] = nullptr;
-    }
-
-    // Agregar estadísticas
-    doc["stats"] = JsonObject();
-    doc["stats"]["successful_reads"] = successfulReads;
-    doc["stats"]["failed_reads"] = failedReads;
-    doc["stats"]["zero_readings"] = zeroReadings;
-    doc["stats"]["has_valid_data"] = hasValidData;
-    
-    // Convertir a String
-    String jsonString;
-    serializeJson(doc, jsonString);
-    
-    return jsonString;
-}
-
-// ===========================================================
-// FUNCIÓN: DEBUG DETALLADO
-// ===========================================================
-void printDetailedDebug() {
-    Serial.println("\n=== DEBUG DETALLADO MÓDULO 1 ===");
-    
-    // Estado WiFi
-    Serial.printf("WiFi: %s | RSSI: %d dBm\n", 
-                  WiFi.status() == WL_CONNECTED ? "Conectado" : "Desconectado",
-                  WiFi.RSSI());
-    
-    // Estado MQTT
-    Serial.printf("MQTT: %s\n", client.connected() ? "Conectado" : "Desconectado");
-    
-    // Memoria
-    Serial.printf("Memoria libre: %d bytes\n", ESP.getFreeHeap());
-    
-    // Estadísticas
-    Serial.printf("Estadísticas - Exitosos: %d | Fallidos: %d | Ceros: %d\n", 
-                  successfulReads, failedReads, zeroReadings);
-    
-    // Lecturas actuales
-    float temp = dht.readTemperature();
-    float hum = dht.readHumidity();
-    int co = analogRead(mq7_pin);
-    int nh3 = analogRead(mq137_pin);
-    
-    Serial.printf("Sensores - Temp: %.1f°C | Hum: %.1f%% | CO: %d | NH3: %d\n", 
-                  isnan(temp) ? 0 : temp,
-                  isnan(hum) ? 0 : hum,
-                  co, nh3);
-    
-    // CCS811
-    if (ccs811_initialized && ccs.available() && !ccs.readData()) {
-        Serial.printf("CCS811 - CO2: %d ppm | TVOC: %d ppb\n", ccs.geteCO2(), ccs.getTVOC());
-    } else {
-        Serial.println("CCS811 - Error en lectura");
-    }
-    
-    Serial.println("===============================");
-}
-
-// ===========================================================
-// SETUP
-// ===========================================================
+// ============================================================================
+// Arduino
+// ============================================================================
 void setup() {
     Serial.begin(115200);
-    Serial.println("=== INICIANDO MÓDULO 1 - MQTT JSON ===");
-    
-    setup_wifi();
+    delay(200);
+
+    snprintf(topicData, sizeof(topicData), "sensor/modulo%d/data", MODULE_NUMBER);
+    snprintf(topicStatus, sizeof(topicStatus), "sensor/modulo%d/status", MODULE_NUMBER);
+    snprintf(topicHeartbeat, sizeof(topicHeartbeat), "sensor/modulo%d/heartbeat", MODULE_NUMBER);
+    snprintf(clientId, sizeof(clientId), "esp32-modulo%d-%06llX",
+             MODULE_NUMBER, (unsigned long long)(ESP.getEfuseMac() & 0xFFFFFF));
+
+    Serial.printf("=== Nodo modulo%d (contrato v1, MQTTS) ===\n", MODULE_NUMBER);
+
+    analogReadResolution(12);
+    analogSetAttenuation(ADC_11db);  // hasta ~3.1 V en la entrada del ADC
+
     dht.begin();
+    Wire.begin(I2C_SDA, I2C_SCL);
+    ccsReady = ccs.begin();
+    Serial.println(ccsReady ? "[CCS811] listo" : "[CCS811] no responde; no se publicará telemetría");
 
-    pinMode(mq7_pin, INPUT);
-    pinMode(mq137_pin, INPUT);
-    pinMode(o2_pin, INPUT);
-    pinMode(wind_pin, INPUT);
+    if (!HAS_MQ7 || MQ7_R0_OHMS <= 0.0f)     Serial.println("[MQ-7] sin calibrar: co = null");
+    if (!HAS_MQ137 || MQ137_R0_OHMS <= 0.0f) Serial.println("[MQ-137] sin calibrar: nh3 = null");
+    if (!HAS_O2 || O2_AIR_MV <= 0.0f)        Serial.println("[O2] sin calibrar: o2 = null");
 
-    // I2C en pines personalizados
-    Wire.begin(25, 26);
+    tlsClient.setCACert(MQTT_CA_CERT);  // valida la cadena y el nombre del broker
+    mqtt.setServer(MQTT_HOST, MQTT_PORT);
+    mqtt.setBufferSize(512);
+    mqtt.setKeepAlive(30);
 
-    if (ccs.begin()) {
-        ccs811_initialized = true;
-        Serial.println("CCS811 inicializado correctamente.");
-    } else {
-        Serial.println("Error al iniciar CCS811.");
-    }
-
-    client.setServer(mqtt_server, 1883);
-    
-    // Lectura inicial para diagnóstico
-    Serial.println("\n=== LECTURA INICIAL DE SENSORES ===");
-    printDetailedDebug();
-    
-    Serial.println("Setup completado. Iniciando loop principal...");
+    ensureWifi();
+    ensureClock();
 }
 
-// ===========================================================
-// LOOP PRINCIPAL
-// ===========================================================
 void loop() {
-    // Reconectar MQTT si es necesario
-    if (!client.connected()) {
-        reconnect();
+    ensureWifi();
+    ensureClock();
+    ensureMqtt();
+    mqtt.loop();
+
+    if (!mqtt.connected()) {
+        delay(50);
+        return;
     }
-    client.loop();
-    
-    unsigned long currentTime = millis();
-    
-    // Enviar datos cada segundo
-    if (currentTime - lastSendTime >= SEND_INTERVAL) {
-        String jsonData = createSensorJSON();
-        
-        // Siempre enviar el JSON, incluso con valores nulos
-        // Esto ayuda a diagnosticar problemas de sensores
-        bool published = client.publish(topic_data, jsonData.c_str());
-        
-        if (published) {
-            Serial.println("JSON enviado: " + jsonData);
-        } else {
-            Serial.println("Error al enviar JSON");
-        }
-        
-        lastSendTime = currentTime;
+
+    unsigned long now = millis();
+    if (now - lastHeartbeat >= HEARTBEAT_INTERVAL_MS || lastHeartbeat == 0) {
+        publishHeartbeat();
+        lastHeartbeat = now;
     }
-    
-    // Debug detallado cada 10 segundos
-    if (currentTime - lastDebugTime >= DEBUG_INTERVAL) {
-        printDetailedDebug();
-        lastDebugTime = currentTime;
+    if (now - lastTelemetry >= TELEMETRY_INTERVAL_MS || lastTelemetry == 0) {
+        publishTelemetry();
+        lastTelemetry = now;
     }
-    
-    delay(100);  // Pequeño delay para no sobrecargar el CPU
+    delay(50);
 }
