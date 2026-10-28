@@ -1,4 +1,5 @@
 from werkzeug.exceptions import HTTPException
+import click
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import select, text
@@ -3399,6 +3400,67 @@ def purge_security_events_command():
         print(f"Depuracion completada: {deleted} eventos anteriores a {SECURITY_EVENTS_RETENTION_DAYS} dias eliminados.")
     except Exception as e:
         print(f"Error durante la depuracion de eventos: {e}")
+
+
+def bootstrap_first_admin(username, password, full_name=""):
+    """Crear el primer administrador de una instalación nueva.
+
+    Solo funciona mientras no exista ningún administrador: después, las
+    cuentas se crean desde /api/register por un admin con MFA. El admin
+    creado aquí debe enrolar TOTP en su primer inicio de sesión.
+    """
+    username = (username or "").strip()
+    if not username or not isinstance(password, str):
+        raise ValueError("Se requieren usuario y contraseña.")
+    if len(password) < MIN_PASSWORD_LENGTH or password.casefold() == username.casefold():
+        raise ValueError(
+            f"La contraseña debe tener al menos {MIN_PASSWORD_LENGTH} caracteres "
+            "y ser distinta del usuario."
+        )
+    if User.query.filter_by(role="admin").first():
+        raise ValueError("Ya existe un administrador; usa /api/register.")
+    if User.query.filter_by(username=username).first():
+        raise ValueError("El usuario ya existe.")
+
+    user = User(
+        username=username,
+        full_name=full_name or username,
+        role="admin",
+        initials=(full_name or username)[:2].upper(),
+    )
+    user.set_password(password)
+    db.session.add(user)
+    db.session.commit()
+
+    logger.warning(
+        "event=first_admin_bootstrapped user_id=%s username=%s",
+        user.id,
+        safe_log_value(username, limit=80),
+    )
+    record_security_event(
+        event_type="first_admin_bootstrapped",
+        severity="warning",
+        source="api_cli",
+        actor_username=username,
+        reason="initial_setup",
+    )
+    return user
+
+
+@app.cli.command("create-admin")
+@click.option("--username", required=True, help="Nombre de usuario del primer admin.")
+@click.option("--full-name", default="", help="Nombre visible.")
+@click.password_option(help="Contraseña (mínimo 12 caracteres).")
+def create_admin_command(username, full_name, password):
+    """Crear el primer administrador (solo si aún no hay ninguno)."""
+    try:
+        user = bootstrap_first_admin(username, password, full_name)
+    except ValueError as exc:
+        raise click.ClickException(str(exc))
+    click.echo(
+        f"Administrador '{user.username}' creado. Debe enrolar MFA (TOTP) "
+        "en su primer inicio de sesión."
+    )
 
 
 def start(port=5000, host='127.0.0.1'):
