@@ -91,9 +91,8 @@ docs/evidence/commit29/screenshots/E29-02-github-actions.png
 docs/evidence/commit29/screenshots/E29-10-rollback-backup.png
 ```
 
-No agregar imágenes pendientes ni enlaces rotos. El DOCX incluido en
-`docs/evidence/commit29/` funciona como plantilla formal para insertar las
-capturas autorizadas.
+No agregar imágenes pendientes ni enlaces rotos. Las capturas autorizadas se
+guardan fuera del repositorio público, junto con el reporte de evidencia.
 
 ## 4. Catálogo de evidencias
 
@@ -262,7 +261,7 @@ Validación pública después del despliegue:
 
 ```bash
 bash scripts/check_nginx_security_headers.sh \
-  https://poultry-system.duckdns.org
+  https://poultry.example.org
 ```
 
 El script debe aprobar `/`, `/login`, `/api/health`, `/health` y una ruta 404.
@@ -351,8 +350,8 @@ workflows filtrados.
 El despliegue del commit 29 sólo actualiza el checkout:
 
 ```bash
-ssh admnyc@poultry-system.duckdns.org
-cd /home/admnyc/py/poultry-iot-system-v2
+ssh deploy@poultry.example.org
+cd /home/deploy/py/poultry-iot-system-v2
 
 git branch --show-current
 git rev-parse --short HEAD
@@ -383,7 +382,7 @@ docker compose ps -q | xargs -r docker inspect --format \
   '{{.Name}} restart={{.RestartCount}} status={{.State.Status}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}n/a{{end}}'
 
 bash scripts/check_nginx_security_headers.sh \
-  https://poultry-system.duckdns.org
+  https://poultry.example.org
 ```
 
 Los cinco servicios deben permanecer saludables y sin reinicios provocados por
@@ -394,7 +393,7 @@ el despliegue documental.
 Para revertir únicamente el checkout documental:
 
 ```bash
-cd /home/admnyc/py/poultry-iot-system-v2
+cd /home/deploy/py/poultry-iot-system-v2
 git switch rollback/pre-commit29-SHA_ANTERIOR
 ```
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-base_url="${1:-https://poultry-system.duckdns.org}"
+base_url="${1:-https://poultry.example.org}"
 base_url="${base_url%/}"
 
 case "$base_url" in

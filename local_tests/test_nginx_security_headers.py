@@ -107,7 +107,7 @@ class NginxSecurityHeaderPolicyTests(unittest.TestCase):
         self.assertNotIn("BEGIN PRIVATE KEY", combined)
         self.assertNotIn("BEGIN CERTIFICATE", combined)
         self.assertIn(
-            "/etc/letsencrypt/live/poultry-system.duckdns.org/privkey.pem",
+            "/etc/letsencrypt/live/poultry.example.org/privkey.pem",
             self.site,
         )
 

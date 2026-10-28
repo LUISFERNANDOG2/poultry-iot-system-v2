@@ -322,8 +322,8 @@ código hasta que exista su corrección.
 ### 13.3 Producción sin revelar secretos
 
 ```bash
-curl -fsSI https://poultry-system.duckdns.org/
-curl -fsS https://poultry-system.duckdns.org/api/health
+curl -fsSI https://poultry.example.org/
+curl -fsS https://poultry.example.org/api/health
 
 sudo nginx -t
 sudo ss -lntp

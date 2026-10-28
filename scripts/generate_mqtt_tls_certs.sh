@@ -39,7 +39,7 @@ extendedKeyUsage = serverAuth
 [alt_names]
 DNS.1 = mqtt
 DNS.2 = localhost
-DNS.3 = poultry-system.duckdns.org
+DNS.3 = poultry.example.org
 IP.1 = 127.0.0.1
 EOF
 

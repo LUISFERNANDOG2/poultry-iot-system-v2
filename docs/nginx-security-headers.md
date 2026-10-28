@@ -137,7 +137,7 @@ Primero registrar el SHA desplegado y crear una copia recuperable de la
 configuración activa:
 
 ```bash
-cd /home/admnyc/py/poultry-iot-system-v2
+cd /home/deploy/py/poultry-iot-system-v2
 git branch --show-current
 git rev-parse --short HEAD
 
@@ -173,7 +173,7 @@ Después de recargar Nginx:
 
 ```bash
 bash scripts/check_nginx_security_headers.sh \
-  https://poultry-system.duckdns.org
+  https://poultry.example.org
 ```
 
 El script valida `/`, `/login`, `/api/health`, `/health` y una ruta 404. También
