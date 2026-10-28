@@ -1245,15 +1245,6 @@ def historical():
         user_data=serialize_dashboard_user(current_user),
     )
 
-@app.route('/analysis')
-@login_required
-def analysis():
-    return render_template(
-        'analysis.html',
-        active='analysis',
-        user_data=serialize_dashboard_user(current_user),
-    )
-
 @app.route('/alerts')
 @login_required
 def alerts():
@@ -1279,24 +1270,6 @@ def security_events():
     return render_template(
         'security_events.html',
         active='security_events',
-        user_data=serialize_dashboard_user(current_user),
-    )
-
-@app.route('/ml_models')
-@login_required
-def ml_models():
-    return render_template(
-        'ml_models.html',
-        active='ml_models',
-        user_data=serialize_dashboard_user(current_user),
-    )
-
-@app.route('/reports')
-@login_required
-def reports():
-    return render_template(
-        'reports.html',
-        active='reports',
         user_data=serialize_dashboard_user(current_user),
     )
 
