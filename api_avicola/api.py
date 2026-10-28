@@ -108,9 +108,10 @@ def internal_error_response(message="Error interno del servidor."):
 
 
 app = Flask(__name__)
+# Variables con umbral configurable: las que mide el contrato de telemetría.
 ALLOWED_UMBRAL_VARIABLES = {
-    'temperatura', 'humedad', 'co2', 'amoniaco', 'luz',
-    'presion', 'nivel_agua', 'consumo_alimento'
+    'temperatura', 'humedad', 'co', 'co2', 'amoniaco', 'oxigeno',
+    'velocidad_aire',
 }
 ALLOWED_ALERT_STATES = {'active', 'acknowledged', 'resolved'}
 

@@ -142,5 +142,41 @@ class SubscriberContractTests(unittest.TestCase):
         self.assertIsNone(normalized["oxigeno"])
 
 
+class ThresholdAllowlistTests(unittest.TestCase):
+    """Los umbrales que edita el tablero deben pasar la lista permitida."""
+
+    def setUp(self):
+        self.client = api.app.test_client()
+        with api.app.app_context():
+            api.db.drop_all()
+            api.db.create_all()
+            user = api.User(username="threshold_operator", role="operador")
+            user.set_password("threshold-operator-password")
+            api.db.session.add(user)
+            api.db.session.commit()
+            self.token = api.generate_jwt_token(user)
+
+    def post(self, items):
+        return self.client.post(
+            "/api/umbrales",
+            json=items,
+            headers={"Authorization": f"Bearer {self.token}"},
+        )
+
+    def test_dashboard_variables_are_accepted(self):
+        items = [
+            {"variable": v, "valor_medio": 1, "valor_alto": 2, "valor_grave": 3}
+            for v in ("temperatura", "humedad", "co", "co2", "amoniaco")
+        ]
+        response = self.post(items)
+        self.assertEqual(response.status_code, 200, response.get_json())
+
+    def test_unknown_variable_is_rejected(self):
+        response = self.post(
+            [{"variable": "luz", "valor_medio": 1, "valor_alto": 2, "valor_grave": 3}]
+        )
+        self.assertEqual(response.status_code, 400)
+
+
 if __name__ == "__main__":
     unittest.main()
