@@ -32,7 +32,7 @@ Framework 2.0 and are measured with an included penetration-testing harness.
 - [Repository layout](#repository-layout)
 - [Documentation](#documentation)
 - [Citation](#citation)
-- [License and authors](#license-and-authors)
+- [License](#license)
 
 ## Features
 
@@ -288,10 +288,9 @@ database dumps or logs; `.gitignore` covers them.
 If you use this software, please cite it using the metadata in
 [CITATION.cff](CITATION.cff) (GitHub's "Cite this repository" button).
 
-## License and authors
+## License
 
 MIT License, see [LICENSE](LICENSE).
 
-Developed by **Luis Fernando González González** and **Isaac Castro Islas**, as
-part of the AviSmartFarm master's thesis project at the Instituto Tecnológico
-de San Juan del Río (Tecnológico Nacional de México).
+Developed as part of the AviSmartFarm master's thesis project at the
+Instituto Tecnológico de San Juan del Río (Tecnológico Nacional de México).
