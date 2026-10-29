@@ -35,7 +35,10 @@ class MFAServiceTests(unittest.TestCase):
 
     def test_rejects_tampered_ciphertext(self):
         encrypted = self.service.encrypt_secret(self.secret)
-        tampered = f"{encrypted[:-1]}A"
+        # Cambiar de verdad el último carácter: si ya era "A", la prueba
+        # anterior no alteraba nada y fallaba una de cada ~64 corridas.
+        replacement = "B" if encrypted[-1] == "A" else "A"
+        tampered = f"{encrypted[:-1]}{replacement}"
 
         with self.assertRaises(MFASecretError):
             self.service.decrypt_secret(tampered)
