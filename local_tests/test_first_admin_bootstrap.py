@@ -64,5 +64,41 @@ class FirstAdminBootstrapTests(unittest.TestCase):
             self.assertEqual(api.User.query.count(), 0)
 
 
+class CreateUserCommandTests(unittest.TestCase):
+    """Altas adicionales desde el servidor (el tablero no tiene pantalla de altas)."""
+
+    def setUp(self):
+        self.runner = api.app.test_cli_runner()
+        with api.app.app_context():
+            api.db.drop_all()
+            api.db.create_all()
+
+    def invoke(self, username, role, password="una-contrasena-larga-1"):
+        return self.runner.invoke(args=[
+            "create-user", "--username", username, "--role", role, "--password", password,
+        ])
+
+    def test_creates_operator_and_records_event(self):
+        result = self.invoke("operador_nave1", "operador")
+        self.assertEqual(result.exit_code, 0, result.output)
+        with api.app.app_context():
+            user = api.User.query.filter_by(username="operador_nave1").one()
+            self.assertEqual(user.role, "operador")
+            event = api.SecurityEvent.query.filter_by(event_type="user_created").one()
+            self.assertEqual(event.source, "api_cli")
+
+    def test_rejects_unknown_role_and_duplicates(self):
+        self.assertNotEqual(self.invoke("x_user", "superuser").exit_code, 0)
+        self.assertEqual(self.invoke("visor_1", "visor").exit_code, 0)
+        result = self.invoke("VISOR_1", "visor")
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertIn("ya existe", result.output)
+
+    def test_rejects_short_password(self):
+        self.assertNotEqual(self.invoke("visor_2", "visor", "corta").exit_code, 0)
+        with api.app.app_context():
+            self.assertEqual(api.User.query.count(), 0)
+
+
 if __name__ == "__main__":
     unittest.main()

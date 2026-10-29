@@ -120,67 +120,6 @@
         {% endif %}
       {% endwith %}
 
-      {% if show_register %}
-      <!-- Registration Form -->
-      <form method="POST">
-        <div class="mb-3">
-          <label for="username" class="form-label">
-            <i class="bi bi-person me-1"></i><span data-i18n="login.lbl_username">Usuario</span>
-          </label>
-          <input type="text" class="form-control" id="username" name="username" required
-                 autocomplete="username"
-                 data-i18n-ph="login.ph_username" placeholder="Ingrese nombre de usuario">
-        </div>
-
-        <div class="mb-3">
-          <label for="full_name" class="form-label">
-            <i class="bi bi-person-badge me-1"></i><span data-i18n="login.lbl_fullname">Nombre Completo</span>
-          </label>
-          <input type="text" class="form-control" id="full_name" name="full_name" required
-                 data-i18n-ph="login.ph_fullname" placeholder="Ingrese su nombre completo">
-        </div>
-
-        <div class="mb-3">
-          <label for="password" class="form-label">
-            <i class="bi bi-lock me-1"></i><span data-i18n="login.lbl_password">Contraseña</span>
-          </label>
-          <input type="password" class="form-control" id="password" name="password" required
-                 autocomplete="new-password"
-                 data-i18n-ph="login.ph_password" placeholder="Ingrese contraseña (mínimo 6 caracteres)">
-        </div>
-
-        <div class="mb-3">
-          <label for="confirm_password" class="form-label">
-            <i class="bi bi-lock-fill me-1"></i><span data-i18n="login.lbl_confirm">Confirmar Contraseña</span>
-          </label>
-          <input type="password" class="form-control" id="confirm_password" name="confirm_password" required
-                 autocomplete="new-password"
-                 data-i18n-ph="login.ph_confirm" placeholder="Confirme su contraseña">
-        </div>
-
-        <div class="mb-3">
-          <label for="role" class="form-label">
-            <i class="bi bi-shield me-1"></i><span data-i18n="login.lbl_role">Rol</span>
-          </label>
-          <select class="form-control" id="role" name="role" required>
-            <option value="visor" data-i18n="login.opt_user">Visor</option>
-            <option value="operador" data-i18n="login.opt_operator">Operador</option>
-            <option value="admin" data-i18n="login.opt_admin">Administrador</option>
-          </select>
-        </div>
-
-        <button type="submit" class="btn btn-primary-custom mb-3">
-          <span data-i18n="login.btn_register">Registrar Usuario</span>
-        </button>
-      </form>
-
-      <div class="text-center">
-        <small>
-          <span data-i18n="login.already_account">¿Ya tienes cuenta?</span>
-          <a href="/login" class="text-decoration-none" data-i18n="login.login_here">Inicia sesión aquí</a>
-        </small>
-      </div>
-      {% else %}
       <!-- Login Form -->
       {% if mfa_step %}
         {% if mfa_setup_required %}
@@ -313,13 +252,6 @@
         </button>
       </form>
 
-      <div class="text-center">
-        <small>
-          <span data-i18n="login.no_account">¿No tienes cuenta?</span>
-          <a href="/register" class="text-decoration-none" data-i18n="login.register_here">Regístrate aquí</a>
-        </small>
-      </div>
-      {% endif %}
       {% endif %}
 
     </div>
