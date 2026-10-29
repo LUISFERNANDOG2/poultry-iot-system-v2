@@ -97,9 +97,9 @@
         <i class="bi bi-exclamation-triangle-fill"></i>
       </div>
       <div>
-        <span class="stat-label" data-i18n="historical.card_anomalies">Anomalías</span>
+        <span class="stat-label" data-i18n="historical.card_anomalies">Lecturas críticas</span>
         <div class="stat-value" id="anomalies">0</div>
-        <span class="stat-desc" data-i18n="historical.card_anomalies_desc">Valores críticos detectados</span>
+        <span class="stat-desc" data-i18n="historical.card_anomalies_desc">Sobre el umbral crítico</span>
       </div>
     </div>
   </div>
@@ -438,7 +438,7 @@
     document.getElementById('totalCount').textContent = filteredData.length.toLocaleString();
 
     if (filteredData.length > 0) {
-      // Anomalías (Crítico + Alto)
+      // Lecturas con alguna variable sobre el umbral crítico (no es detección de anomalías por ML)
       const anomalies = filteredData.filter(r => getCellClass('temperatura', r.temperature) === 'status-critical' || getCellClass('humedad', r.humidity) === 'status-critical' || getCellClass('amoniaco', r.nh3) === 'status-critical' || getCellClass('co2', r.co2) === 'status-critical' || getCellClass('co', r.co) === 'status-critical' || getCellClass('oxigeno', r.oxygen) === 'status-critical').length;
       document.getElementById('anomalies').textContent = anomalies;
     } else {
