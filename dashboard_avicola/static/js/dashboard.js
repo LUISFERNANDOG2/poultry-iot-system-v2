@@ -1,83 +1,9 @@
-// Dashboard JavaScript - (QUERÉTARO VERSION 1.0)
-let temperatureChart, humidityChart, ammoniaChart, coChart, co2Chart;
-let o2Chart, windChart, effectiveTempChart;
-let lastRealUpdate = null;
-let lastApiSuccess = null;
-let previousLiveData = null;  // Para calcular deltas ▲/▼
-
-// =========================================================
-// CONFIGURACIÓN DE CALIBRACIÓN - QUERÉTARO)
-// =========================================================
-
-// PARÁMETROS DEL CIRCUITO (MEDIDOS)
-const VCC_MQ7 = 5.0;           // Voltaje real en VCC del MQ-7
-const VCC_MQ137 = 5.0;         // Voltaje real en VCC del MQ-137
-const RL_MQ7 = 9900;           // Resistencia MQ-7 (9.9kΩ medido)
-const RL_MQ137 = 9900;         // Resistencia MQ-137 (9.9kΩ medido)
-const DIVISOR_FACTOR = 2.0;    // Factor del divisor (10k+10k = 2:1)
-
-// CORRECCIÓN POR ALTITUD PARA QUERÉTARO (1,820m)
-const ALTITUDE_METERS = 1820;
-const ALTITUDE_FACTOR = 0.79;  // 800 hPa / 1013 hPa (presión relativa)
-const CO2_EXTERIOR_REF = 410;  // ppm CO2 en aire exterior Querétaro
-
-// PARÁMETROS DE SENSORES - VALORES CORREGIDOS BASADOS EN TUS LECTURAS
-// MQ-7 para CO: ppm = 99.04 * (Rs/R0)^(-1.518)
-const MQ7_A = 99.04;
-const MQ7_B = -1.518;
-let MQ7_R0 = 58000;           // VALOR CORREGIDO (basado en RAW=111, Rs=261kΩ, ratio=4.5)
-
-// MQ-137 para NH3: ppm = 36.665 * (Rs/R0)^(-1.461)
-const MQ137_A = 36.665;
-const MQ137_B = -1.461;
-let MQ137_R0 = 9500;          // VALOR CORREGIDO (basado en RAW=522, Rs=47.7kΩ, ratio=5.0)
-
-// FACTORES EMPÍRICOS DE CALIBRACIÓN (ajustan fórmulas teóricas a la realidad)
-const MQ7_EMPIRICAL_FACTOR = 0.5;    // Reduce PPM teóricos a la mitad (más realista)
-const MQ137_EMPIRICAL_FACTOR = 0.4;  // Reduce PPM teóricos (más realista)
-
-// OFFSETS DE CALIBRACIÓN (ajustar tras medición en aire exterior)
-let CCS811_OFFSET = 0;         // ppm CO2
-let MQ7_OFFSET = 0;            // ppm CO
-let MQ137_OFFSET = 0;          // ppm NH3
-
-// =========================================================
-// FUNCIONES DE CARGA Y GUARDADO DE CALIBRACIÓN
-// =========================================================
-
-function loadCalibrationFromStorage() {
-  // Cargar R0 de los sensores MQ
-  const savedMQ7_R0 = localStorage.getItem('mq7_r0');
-  const savedMQ137_R0 = localStorage.getItem('mq137_r0');
-
-  if (savedMQ7_R0) MQ7_R0 = parseFloat(savedMQ7_R0);
-  if (savedMQ137_R0) MQ137_R0 = parseFloat(savedMQ137_R0);
-
-  // Cargar offsets de calibración
-  const savedCCS811 = localStorage.getItem('ccs811_offset');
-  const savedMQ7 = localStorage.getItem('mq7_offset');
-  const savedMQ137 = localStorage.getItem('mq137_offset');
-
-  if (savedCCS811) CCS811_OFFSET = parseFloat(savedCCS811);
-  if (savedMQ7) MQ7_OFFSET = parseFloat(savedMQ7);
-  if (savedMQ137) MQ137_OFFSET = parseFloat(savedMQ137);
-
-  console.log('Calibración cargada:', {
-    MQ7_R0: `${MQ7_R0.toFixed(0)}Ω`,
-    MQ137_R0: `${MQ137_R0.toFixed(0)}Ω`,
-    CCS811_OFFSET: `${CCS811_OFFSET.toFixed(1)} ppm`,
-    MQ7_OFFSET: `${MQ7_OFFSET.toFixed(2)} ppm`,
-    MQ137_OFFSET: `${MQ137_OFFSET.toFixed(2)} ppm`
-  });
-}
-
-function saveCalibrationToStorage() {
-  localStorage.setItem('mq7_r0', MQ7_R0);
-  localStorage.setItem('mq137_r0', MQ137_R0);
-  localStorage.setItem('ccs811_offset', CCS811_OFFSET);
-  localStorage.setItem('mq7_offset', MQ7_OFFSET);
-  localStorage.setItem('mq137_offset', MQ137_OFFSET);
-}
+// Dashboard JavaScript. Los gases llegan en ppm desde la API; aquí no se calibra nada.
+let temperatureChart, humidityChart, ammoniaChart, coChart, co2Chart, oxygenChart;
+let lastRealUpdate = null;   // Timestamp de la última lectura del sensor (para mostrar en UI)
+let lastApiSuccess = null;   // Momento en que live-data respondió OK (para estado de conexión)
+let airVelocityChart = null;  // se crea solo si el toggle de velocidad del aire está activo
+let previousLiveData = null;   // lectura anterior, para los indicadores ▲/▼
 
 // =========================================================
 // DELTA ▲/▼ ENTRE LECTURA ACTUAL Y ANTERIOR
@@ -99,7 +25,8 @@ function updateDelta(elementId, current, previous, unit) {
     return;
   }
   const diff = current - previous;
-  if (Math.abs(diff) < 0.01) {
+  // Mostrado con 1 decimal: por debajo de 0.05 se vería como "▲ 0.0".
+  if (Math.abs(diff) < 0.05) {
     el.innerHTML = '<span class="delta-neutral">— sin cambio</span>';
     return;
   }
@@ -110,18 +37,24 @@ function updateDelta(elementId, current, previous, unit) {
 
 function updateAllDeltas(current, previous) {
   if (!previous) return;
-  updateDelta('temp_delta',  current.temperatura,      previous.temperatura,      '°C');
-  updateDelta('hum_delta',   current.humedad,          previous.humedad,          '%');
-  updateDelta('nh3_delta',   current.amoniaco,         previous.amoniaco,         'ADC');
-  updateDelta('co_delta',    current.co,               previous.co,               'ADC');
-  updateDelta('co2_delta',   current.co2,              previous.co2,              'ppm');
-  updateDelta('o2_delta',    current.oxigeno,          previous.oxigeno,          '%');
-  updateDelta('wind_delta',  current.velocidad_viento, previous.velocidad_viento, 'm/s');
+  updateDelta('temp_delta',   current.temperatura,    previous.temperatura,    '°C');
+  updateDelta('hum_delta',    current.humedad,        previous.humedad,        '%');
+  updateDelta('nh3_delta',    current.amoniaco,       previous.amoniaco,       'ppm');
+  updateDelta('co_delta',     current.co,             previous.co,             'ppm');
+  updateDelta('co2_delta',    current.co2,            previous.co2,            'ppm');
+  updateDelta('oxygen_delta', current.oxigeno,        previous.oxigeno,        '%');
+  updateDelta('air_velocity_delta', current.velocidad_aire, previous.velocidad_aire, 'm/s');
 }
 
 // =========================================================
 // MINI ALERTAS EN DASHBOARD
 // =========================================================
+
+function escapeMiniAlertText(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[ch]);
+}
 
 async function loadMiniAlerts() {
   try {
@@ -130,7 +63,7 @@ async function loadMiniAlerts() {
     const alerts = await res.json();
     const section = document.getElementById('miniAlertsSection');
     const list    = document.getElementById('miniAlertsList');
-    if (!section || !list) return;
+    if (!section || !list || !Array.isArray(alerts)) return;
 
     if (!alerts.length) { section.style.display = 'none'; return; }
 
@@ -140,254 +73,50 @@ async function loadMiniAlerts() {
       const ago = formatTimeAgo(new Date(a.timestamp));
       return `<div class="mini-alert-item">
         <span class="mini-alert-dot ${dotClass}"></span>
-        <span>${a.mensaje} <span class="text-muted" style="font-size:0.75rem;">— ${ago}</span></span>
+        <span>${escapeMiniAlertText(a.mensaje)} <span class="text-muted" style="font-size:0.75rem;">— ${escapeMiniAlertText(ago)}</span></span>
       </div>`;
     }).join('');
   } catch (e) { /* silencioso si falla */ }
 }
 
 // =========================================================
-// TOGGLE DE VELOCIDAD DEL VIENTO
+// TOGGLE DE VELOCIDAD DEL AIRE
+// No todos los nodos tienen anemómetro; el toggle muestra la tarjeta y la
+// gráfica solo cuando la nave mide velocidad del aire. La preferencia se
+// guarda por navegador.
 // =========================================================
 
-function onWindToggle(enabled) {
-  localStorage.setItem('wind_speed_enabled', enabled);
-  applyWindToggle(enabled);
+const AIR_VELOCITY_STORAGE_KEY = 'air_velocity_enabled';
+
+function isAirVelocityEnabled() {
+  try {
+    return localStorage.getItem(AIR_VELOCITY_STORAGE_KEY) === 'true';
+  } catch (e) {
+    return false;
+  }
 }
 
-function applyWindToggle(enabled) {
-  document.querySelectorAll('.card-wind').forEach(el => {
-    el.style.display = enabled ? '' : 'none';
-  });
-  document.querySelectorAll('.chart-wind').forEach(el => {
+function onAirVelocityToggle(enabled) {
+  try { localStorage.setItem(AIR_VELOCITY_STORAGE_KEY, enabled); } catch (e) { /* sin almacenamiento */ }
+  applyAirVelocityToggle(enabled);
+}
+
+function applyAirVelocityToggle(enabled) {
+  document.querySelectorAll('.card-air-velocity, .chart-air-velocity').forEach(el => {
     el.style.display = enabled ? '' : 'none';
   });
 
   if (enabled) {
-    if (!windChart) {
-      windChart = initChart(
-        document.getElementById('windChart'),
-        t('dashboard.chart_wind'),
+    if (!airVelocityChart) {
+      airVelocityChart = initChart(
+        document.getElementById('airVelocityChart'),
+        t('dashboard.chart_air_velocity'),
         "#6464c8"
       );
     }
-    if (!effectiveTempChart) {
-      effectiveTempChart = initChart(
-        document.getElementById('effectiveTempChart'),
-        t('dashboard.chart_effective_temp'),
-        "#0277bd"
-      );
-    }
-    // Rellenar gráficas con datos del último rango si ya hay datos históricos
     const range = document.getElementById('rangeSelect');
-    if (range) loadHistorical(range.value === 'custom' ? 'custom' : range.value);
+    if (range && range.value !== 'custom') loadHistorical(range.value);
   }
-}
-
-// =========================================================
-// CÁLCULO DE TEMPERATURA EFECTIVA (Steadman Apparent Temperature)
-// AT = Ta + 0.33 * e - 0.70 * WS - 4.00
-// e  = (RH/100) * 6.105 * exp(17.27 * Ta / (237.7 + Ta))
-// =========================================================
-
-function calculateEffectiveTemperature(temp, humidity, windMs) {
-  if (temp == null || humidity == null || windMs == null) return null;
-  const e = (humidity / 100) * 6.105 * Math.exp((17.27 * temp) / (237.7 + temp));
-  const at = temp + 0.33 * e - 0.70 * windMs - 4.00;
-  return Math.round(at * 10) / 10;
-}
-
-// =========================================================
-// FUNCIONES DE CORRECCIÓN POR ALTITUD
-// =========================================================
-
-function applyAltitudeCorrection(value, type) {
-  if (!value || value <= 0) return 0;
-
-  // Solo aplicar a mediciones de gases (afectadas por presión)
-  switch (type) {
-    case 'CO':
-    case 'NH3':
-    case 'CO2':
-    case 'TVOC':
-      return value * ALTITUDE_FACTOR;
-
-    case 'TEMPERATURE':
-      // Corrección mínima: -0.65°C cada 100m
-      return value + (ALTITUDE_METERS / 100 * 0.65);
-
-    default:
-      return value;
-  }
-}
-
-function applyCalibrationOffset(value, type) {
-  if (!value || value <= 0) return 0;
-
-  switch (type) {
-    case 'CO2':
-      return value + CCS811_OFFSET;
-    case 'CO':
-      return value + MQ7_OFFSET;
-    case 'NH3':
-      return value + MQ137_OFFSET;
-    default:
-      return value;
-  }
-}
-
-// =========================================================
-// FUNCIONES DE CÁLCULO CORREGIDAS PARA SENSORES MQ
-// =========================================================
-
-function calculateRs(adcValue, type) {
-  if (!adcValue || adcValue <= 0 || adcValue >= 4095) return 0;
-
-  // 1. ADC a voltaje ESP32 (0-3.3V)
-  const voltage_esp = (adcValue / 4095.0) * 3.3;
-
-  // 2. Aplicar divisor (2:1)
-  const voltage_mq = voltage_esp * DIVISOR_FACTOR;
-
-  // 3. Parámetros según sensor
-  let RL, VCC;
-  if (type === 'CO') {
-    RL = RL_MQ7;
-    VCC = VCC_MQ7;
-  } else if (type === 'NH3') {
-    RL = RL_MQ137;
-    VCC = VCC_MQ137;
-  } else {
-    return 0;
-  }
-
-  // 4. Evitar división por cero
-  if (voltage_mq <= 0) return 0;
-
-  // 5. Calcular Rs: Rs = RL * ((VCC / Vout) - 1)
-  const Rs = RL * ((VCC / voltage_mq) - 1);
-  return Rs;
-}
-
-function calculatePPM(adcValue, type) {
-  if (!adcValue || adcValue <= 0 || adcValue >= 4095) return 0;
-
-  // 1. Calcular Rs
-  const Rs = calculateRs(adcValue, type);
-
-  // 2. Parámetros según tipo
-  let R0, A, B, empiricalFactor;
-  if (type === 'CO') {
-    R0 = MQ7_R0;
-    A = MQ7_A;
-    B = MQ7_B;
-    empiricalFactor = MQ7_EMPIRICAL_FACTOR;
-  } else if (type === 'NH3') {
-    R0 = MQ137_R0;
-    A = MQ137_A;
-    B = MQ137_B;
-    empiricalFactor = MQ137_EMPIRICAL_FACTOR;
-  } else {
-    return 0;
-  }
-
-  // 3. Validaciones
-  if (R0 <= 0 || Rs <= 0) return 0;
-
-  // 4. Calcular ratio y PPM base
-  const ratio = Rs / R0;
-  let ppm = A * Math.pow(ratio, B);
-
-  // 5. Aplicar factor empírico (¡CRÍTICO para valores realistas!)
-  ppm = ppm * empiricalFactor;
-
-  // 6. Aplicar corrección por altitud
-  ppm = applyAltitudeCorrection(ppm, type);
-
-  // 7. Aplicar offset de calibración
-  ppm = applyCalibrationOffset(ppm, type);
-
-  // 8. Limitar valores
-  if (ppm < 0) ppm = 0;
-  if (ppm > 5000) ppm = 5000;
-
-  // 9. Redondear
-  return Math.round(ppm * 10) / 10;
-}
-
-// =========================================================
-// PROCESAMIENTO ESPECIAL PARA CCS811
-// =========================================================
-
-function processCCS811Data(eco2, tvoc, temperature, humidity) {
-  if (!eco2 || eco2 <= 0) return { co2: 0, tvoc: 0, isCorrected: false };
-
-  // 1. Aplicar corrección por altitud
-  let correctedCO2 = applyAltitudeCorrection(eco2, 'CO2');
-  let correctedTVOC = applyAltitudeCorrection(tvoc || 0, 'TVOC');
-
-  // 2. Aplicar offset de calibración
-  correctedCO2 = applyCalibrationOffset(correctedCO2, 'CO2');
-
-  return {
-    co2: Math.round(correctedCO2),
-    tvoc: Math.round(correctedTVOC),
-    original: { eco2, tvoc },
-    isCorrected: true
-  };
-}
-
-// =========================================================
-// FUNCIONES DE CALIBRACIÓN MEJORADAS
-// =========================================================
-
-function calibrateR0FromCleanAir(adcCO, adcNH3) {
-  // Esta función calcula R0 a partir de lecturas en aire limpio
-  if (adcCO && adcCO > 0) {
-    const Rs_CO = calculateRs(adcCO, 'CO');
-    MQ7_R0 = Rs_CO / 4.5;  // En aire limpio, Rs/R0 ≈ 4.5 para MQ-7
-    console.log(`MQ-7 R0 calibrado: ${MQ7_R0.toFixed(0)}Ω (de Rs=${Rs_CO.toFixed(0)}Ω)`);
-  }
-
-  if (adcNH3 && adcNH3 > 0) {
-    const Rs_NH3 = calculateRs(adcNH3, 'NH3');
-    MQ137_R0 = Rs_NH3 / 5.0;  // En aire limpio, Rs/R0 ≈ 5.0 para MQ-137
-    console.log(`MQ-137 R0 calibrado: ${MQ137_R0.toFixed(0)}Ω (de Rs=${Rs_NH3.toFixed(0)}Ω)`);
-  }
-
-  saveCalibrationToStorage();
-}
-
-function calibrateWithOutsideAir(co2Reading, coReading, nh3Reading) {
-  // Valores de referencia para aire exterior Querétaro (más realistas)
-  const REF_CO2 = CO2_EXTERIOR_REF;      // 410 ppm CO2
-  const REF_CO = 0.5;                    // ~0.5 ppm CO (más realista para urbano)
-  const REF_NH3 = 0.1;                   // ~0.1 ppm NH3 (más realista)
-
-  // Calcular offsets
-  if (co2Reading && co2Reading > 0) {
-    CCS811_OFFSET = REF_CO2 - co2Reading;
-    console.log(`CCS811: Offset calculado = ${CCS811_OFFSET.toFixed(1)} ppm`);
-  }
-
-  if (coReading && coReading > 0) {
-    const coPPM = calculatePPM(coReading, 'CO');
-    MQ7_OFFSET = REF_CO - coPPM;
-    console.log(`MQ-7: Offset calculado = ${MQ7_OFFSET.toFixed(2)} ppm`);
-  }
-
-  if (nh3Reading && nh3Reading > 0) {
-    const nh3PPM = calculatePPM(nh3Reading, 'NH3');
-    MQ137_OFFSET = REF_NH3 - nh3PPM;
-    console.log(`MQ-137: Offset calculado = ${MQ137_OFFSET.toFixed(2)} ppm`);
-  }
-
-  saveCalibrationToStorage();
-
-  alert(`✅ Calibración completada para Querétaro (${ALTITUDE_METERS}m)\n` +
-    `CCS811: ${CCS811_OFFSET > 0 ? '+' : ''}${CCS811_OFFSET.toFixed(1)} ppm\n` +
-    `MQ-7: ${MQ7_OFFSET > 0 ? '+' : ''}${MQ7_OFFSET.toFixed(2)} ppm\n` +
-    `MQ-137: ${MQ137_OFFSET > 0 ? '+' : ''}${MQ137_OFFSET.toFixed(2)} ppm`);
 }
 
 // =========================================================
@@ -397,143 +126,35 @@ function calibrateWithOutsideAir(co2Reading, coReading, nh3Reading) {
 function updateMetricCards(data) {
   if (!data) return;
 
-  // 1. Procesar datos básicos
-  const tempVal = data.temperatura;
-  const humVal = data.humedad;
-  const nh3Raw = data.amoniaco;
-  const coRaw = data.co;
-  const co2Val = data.co2;
+  const setMetric = (elementId, value, decimals, unit) => {
+    const element = document.getElementById(elementId);
+    if (!element) return;
 
-  // 2. Procesar CCS811 con correcciones
-  const ccs811Data = processCCS811Data(co2Val, data.tvoc || 0, tempVal, humVal);
-
-  // 3. Calcular PPM para MQ (con fórmulas corregidas)
-  const nh3PPM = nh3Raw !== null ? calculatePPM(nh3Raw, 'NH3') : 0;
-  const coPPM = coRaw !== null ? calculatePPM(coRaw, 'CO') : 0;
-
-  // 4. Actualizar DOM con NUEVA ESTRUCTURA
-
-  // Temperatura (1 línea)
-  flashValue('temp');
-  document.getElementById('temp').textContent =
-    (tempVal !== null && tempVal !== undefined) ? tempVal.toFixed(1) + ' °C' : '-- °C';
-
-  // Humedad (1 línea)
-  flashValue('hum');
-  document.getElementById('hum').textContent =
-    (humVal !== null && humVal !== undefined) ? humVal.toFixed(1) + ' %' : '-- %';
-
-  // CO₂ (1 línea grande + info pequeña opcional)
-  const co2Element = document.getElementById('co2');
-  const co2InfoElement = document.getElementById('co2_info');
-
-  flashValue('co2');
-  if (co2Val !== null) {
-    const corrected = ccs811Data.co2;
-    const original = Math.round(co2Val);
-
-    // Línea GRANDE: PPM corregido
-    co2Element.textContent = corrected + ' ppm';
-
-    // Línea PEQUEÑA: Info de corrección (solo si hay)
-    if (ccs811Data.isCorrected) {
-      const diff = Math.abs(original - corrected);
-
-      if (diff > 10 || CCS811_OFFSET !== 0) {
-        let infoText = `Original: ${original} ppm`;
-
-        co2InfoElement.textContent = infoText;
-        co2InfoElement.style.display = 'block';
-      } else {
-        co2InfoElement.textContent = '';
-        co2InfoElement.style.display = 'none';
-      }
-    } else {
-      co2InfoElement.textContent = '';
-      co2InfoElement.style.display = 'none';
-    }
-  } else {
-    co2Element.textContent = '-- ppm';
-    co2InfoElement.textContent = '';
-    co2InfoElement.style.display = 'none';
-  }
-
-  // NH₃ - NUEVA ESTRUCTURA: RAW arriba, PPM abajo
-  const nh3RawElement = document.getElementById('ammonia_raw');
-  const nh3PPMElement = document.getElementById('ammonia_ppm');
-
-  flashValue('ammonia_raw');
-  if (nh3Raw !== null) {
-    // Línea GRANDE: Valor ADC (RAW)
-    nh3RawElement.textContent = nh3Raw.toFixed(0) + ' ADC';
-
-    // Línea PEQUEÑA: PPM calculado
-    if (nh3PPM > 0) {
-      nh3PPMElement.textContent = nh3PPM.toFixed(2) + ' ppm';
-      nh3PPMElement.style.display = 'block';
-    } else {
-      nh3PPMElement.textContent = 'Calculando...';
-      nh3PPMElement.style.display = 'block';
-    }
-  } else {
-    nh3RawElement.textContent = '-- ADC';
-    nh3PPMElement.textContent = '-- ppm';
-    nh3PPMElement.style.display = 'block';
-  }
-
-  // CO - NUEVA ESTRUCTURA: RAW arriba, PPM abajo
-  const coRawElement = document.getElementById('co_raw');
-  const coPPMElement = document.getElementById('co_ppm');
-
-  flashValue('co_raw');
-  if (coRaw !== null) {
-    // Línea GRANDE: Valor ADC (RAW)
-    coRawElement.textContent = coRaw.toFixed(0) + ' ADC';
-
-    // Línea PEQUEÑA: PPM calculado
-    if (coPPM > 0) {
-      coPPMElement.textContent = coPPM.toFixed(2) + ' ppm';
-      coPPMElement.style.display = 'block';
-    } else {
-      coPPMElement.textContent = 'Calculando...';
-      coPPMElement.style.display = 'block';
-    }
-  } else {
-    coRawElement.textContent = '-- ADC';
-    coPPMElement.textContent = '-- ppm';
-    coPPMElement.style.display = 'block';
-  }
-
-  // Oxígeno
-  const o2Element = document.getElementById('o2');
-  if (o2Element) {
-    flashValue('o2');
-    const o2Val = data.oxigeno;
-    o2Element.textContent = (o2Val !== null && o2Val !== undefined) ? o2Val.toFixed(1) + ' %' : '-- %';
-  }
-
-  // Velocidad del viento y temperatura efectiva (solo si toggle está ON)
-  const windEnabled = localStorage.getItem('wind_speed_enabled') === 'true';
-  if (windEnabled) {
-    const windVal = data.velocidad_viento;
-    const windEl = document.getElementById('wind_speed');
-    if (windEl) {
-      windEl.textContent = (windVal !== null && windVal !== undefined) ? windVal.toFixed(1) + ' m/s' : '-- m/s';
+    if (value === null || value === undefined || value === "") {
+      element.textContent = `-- ${unit}`;
+      return;
     }
 
-    const effTempEl = document.getElementById('effective_temp');
-    if (effTempEl) {
-      const at = calculateEffectiveTemperature(data.temperatura, data.humedad, windVal);
-      effTempEl.textContent = at !== null ? at.toFixed(1) + ' °C' : '-- °C';
-    }
+    const numericValue = Number(value);
+    element.textContent = Number.isFinite(numericValue)
+      ? `${numericValue.toFixed(decimals)} ${unit}`
+      : `-- ${unit}`;
+  };
+
+  setMetric("temp", data.temperatura, 1, "°C");
+  setMetric("hum", data.humedad, 1, "%");
+  setMetric("ammonia", data.amoniaco, 2, "ppm");
+  setMetric("co", data.co, 2, "ppm");
+  setMetric("co2", data.co2, 0, "ppm");
+  setMetric("oxygen", data.oxigeno, 2, "%");
+
+  const airVelocityEnabled = isAirVelocityEnabled();
+  if (airVelocityEnabled) {
+    setMetric("air_velocity", data.velocidad_aire, 1, "m/s");
   }
 
-  // Calibración automática en primera ejecución
-  if (!sessionStorage.getItem('auto_calibrated') && coRaw && nh3Raw) {
-    calibrateR0FromCleanAir(coRaw, nh3Raw);
-    sessionStorage.setItem('auto_calibrated', 'true');
-    console.log('Calibración automática de R0 completada');
-  }
+  ['temp', 'hum', 'ammonia', 'co', 'co2', 'oxygen'].forEach(flashValue);
+  if (airVelocityEnabled) flashValue('air_velocity');
 }
 
 // =========================================================
@@ -541,15 +162,6 @@ function updateMetricCards(data) {
 // =========================================================
 
 async function initializeDashboard() {
-  // Cargar calibración desde localStorage
-  loadCalibrationFromStorage();
-
-  // Mostrar valores de calibración
-  console.log('✅ Dashboard inicializado con calibración:');
-  console.log(`   MQ-7 R0: ${MQ7_R0.toFixed(0)}Ω (RAW=111 → ${calculatePPM(111, 'CO').toFixed(1)} ppm)`);
-  console.log(`   MQ-137 R0: ${MQ137_R0.toFixed(0)}Ω (RAW=522 → ${calculatePPM(522, 'NH3').toFixed(1)} ppm)`);
-  console.log(`   Altitud: ${ALTITUDE_METERS}m (Factor: ${ALTITUDE_FACTOR})`);
-
   // Poblar selector de módulos desde la API
   await populateModuleSelector();
   updateParvadaInfo();
@@ -563,9 +175,9 @@ async function initializeDashboard() {
   ammoniaChart = initChart(document.getElementById('ammoniaChart'), t('dashboard.chart_nh3'), "#fb8c00");
   coChart = initChart(document.getElementById('coChart'), t('dashboard.chart_co'), "#43a047");
   co2Chart = initChart(document.getElementById('co2Chart'), t('dashboard.chart_co2'), "#e53935");
-  o2Chart = initChart(document.getElementById('o2Chart'), t('dashboard.chart_o2'), "#0288d1");
+  oxygenChart = initChart(document.getElementById('oxygenChart'), t('dashboard.chart_oxygen'), "#00897b");
 
-  // Gráficas de viento/temp efectiva se crean en applyWindToggle si el toggle está ON
+  // La gráfica de velocidad del aire se crea en applyAirVelocityToggle()
 
   // Cargar datos iniciales
   loadHistorical("24h");
@@ -659,7 +271,7 @@ function initChart(ctx, label, color) {
 
 function clearAllCharts() {
   // Limpiar completamente todas las gráficas
-  const charts = [temperatureChart, humidityChart, ammoniaChart, coChart, co2Chart, o2Chart, windChart, effectiveTempChart];
+  const charts = [temperatureChart, humidityChart, ammoniaChart, coChart, co2Chart, oxygenChart, airVelocityChart];
   
   charts.forEach(chart => {
     if (chart) {
@@ -704,27 +316,44 @@ function getRangeFromUI() {
 function updateChart(chart, labels, data) {
   if (!chart) return;
 
-  const dataPoints = (labels || []).map((ts, index) => ({
-    x: parseTimestamp(ts),
-    y: (data || [])[index] !== null ? (data || [])[index] : null
-  })).filter(point => point.y !== null);
+  const safeLabels = [];
+  const safeValues = [];
 
-  if (chart.options.scales && chart.options.scales.x) {
-    const range = getRangeFromUI();
-    if (range) {
-      chart.options.scales.x.min = range.min;
-      chart.options.scales.x.max = range.max;
-    } else if (dataPoints.length > 0) {
-      const minTime = Math.min(...dataPoints.map(p => p.x.getTime()));
-      const maxTime = Math.max(...dataPoints.map(p => p.x.getTime()));
-      const margin = (maxTime - minTime) * 0.05 || 1000;
-      chart.options.scales.x.min = new Date(minTime - margin);
-      chart.options.scales.x.max = new Date(maxTime + margin);
+  (labels || []).forEach((timestamp, index) => {
+    const rawValue = (data || [])[index];
+
+    if (
+      rawValue === null ||
+      rawValue === undefined ||
+      rawValue === ""
+    ) {
+      return;
     }
-  }
 
-  chart.data.datasets[0].data = dataPoints;
-  chart.update('none');
+    const value = Number(rawValue);
+    const date = parseTimestamp(timestamp);
+
+    if (!Number.isFinite(value) || Number.isNaN(date.getTime())) {
+      return;
+    }
+
+    safeLabels.push(
+      date.toLocaleTimeString("es-MX", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      })
+    );
+    safeValues.push(value);
+  });
+
+  chart.options.scales.x.type = "category";
+  chart.options.scales.x.min = undefined;
+  chart.options.scales.x.max = undefined;
+
+  chart.data.labels = safeLabels;
+  chart.data.datasets[0].data = safeValues;
+  chart.update("none");
 }
 
 // =========================================================
@@ -874,21 +503,18 @@ function setupRangeSelector() {
 }
 
 function getBaseUrl() {
-  const currentPort = window.location.port;
-  return currentPort === '5001'
-    ? `${window.location.protocol}//${window.location.hostname}:5000`
-    : window.location.origin;
+  return window.location.origin;
 }
 
 async function fetchHistoricalData(range, from = null, to = null) {
-  let url = `${getBaseUrl()}/api/historical?range=${range}`;
+  let url = `/api/historical?range=${encodeURIComponent(range)}`;
   if (from && to) url += `&from=${from}&to=${to}`;
 
   // Add module parameter
   const moduleSelect = document.getElementById('moduleSelect');
   if (moduleSelect) {
     const module = moduleSelect.value;
-    url += `&modulo=${module}`;
+    url += `&house=${encodeURIComponent(module)}`;
     console.log(`Fetching data for range: ${range}, module: ${module}`);
   }
 
@@ -931,72 +557,53 @@ function formatTimeAgo(date) {
 }
 
 async function loadHistorical(range, from = null, to = null, clearFirst = false) {
-  const historicalStatus = document.getElementById('historicalStatus') || createHistoricalStatus();
-  historicalStatus.textContent = 'Cargando...';
-  historicalStatus.className = 'badge bg-info';
+  const historicalStatus =
+    document.getElementById("historicalStatus") || createHistoricalStatus();
 
-  // Solo limpiar cuando el usuario cambia de rango o módulo (no en cada actualización periódica)
+  historicalStatus.style.display = "none";
+
   if (clearFirst) clearAllCharts();
 
   const data = await fetchHistoricalData(range, from, to);
+
   if (!data || !data.timestamps || data.timestamps.length === 0) {
-    historicalStatus.textContent = 'Sin datos';
-    historicalStatus.className = 'badge bg-warning';
+    historicalStatus.textContent = "Sin datos históricos";
+    historicalStatus.className = "badge bg-warning";
+    historicalStatus.style.display = "";
     return;
   }
 
-  // Actualizar gráficas con datos del módulo seleccionado
-  if (temperatureChart && humidityChart && ammoniaChart && coChart && co2Chart) {
+  const chartsReady =
+    temperatureChart &&
+    humidityChart &&
+    ammoniaChart &&
+    coChart &&
+    co2Chart &&
+    oxygenChart;
+
+  if (!chartsReady) {
+    historicalStatus.textContent = "Gráficas no inicializadas";
+    historicalStatus.className = "badge bg-warning";
+    historicalStatus.style.display = "";
+    return;
+  }
+
+  try {
     updateChart(temperatureChart, data.timestamps, data.temperature);
     updateChart(humidityChart, data.timestamps, data.humidity);
     updateChart(ammoniaChart, data.timestamps, data.ammonia);
     updateChart(coChart, data.timestamps, data.co);
     updateChart(co2Chart, data.timestamps, data.co2);
+    updateChart(oxygenChart, data.timestamps, data.oxygen);
+  } catch (error) {
+    historicalStatus.textContent = `Error al graficar: ${error.message}`;
+    historicalStatus.className = "badge bg-danger";
+    historicalStatus.style.display = "";
+    console.error("Error de gráficas:", error);
   }
-  if (o2Chart) {
-    updateChart(o2Chart, data.timestamps, data.oxygen || []);
+  if (airVelocityChart && isAirVelocityEnabled()) {
+    updateChart(airVelocityChart, data.timestamps, data.air_velocity || []);
   }
-  const windEnabled = localStorage.getItem('wind_speed_enabled') === 'true';
-  if (windEnabled) {
-    if (windChart) updateChart(windChart, data.timestamps, data.wind_speed || []);
-    if (effectiveTempChart && data.temperature && data.humidity && data.wind_speed) {
-      const atSeries = data.timestamps.map((_, i) =>
-        calculateEffectiveTemperature(data.temperature[i], data.humidity[i], data.wind_speed[i])
-      );
-      updateChart(effectiveTempChart, data.timestamps, atSeries);
-    }
-  }
-
-  setTimeout(() => {
-    historicalStatus.textContent = 'Gráficas actualizadas';
-    historicalStatus.className = 'badge bg-success';
-    setTimeout(() => historicalStatus.style.display = 'none', 2000);
-  }, 1000);
-}
-
-// New function to fetch data for all modules
-async function fetchAllModulesData(range, from = null, to = null) {
-  const modules = ['M1', 'M2', 'M3', 'M4', 'M5'];
-  const allData = {};
-  
-  for (const module of modules) {
-    let url = `${getBaseUrl()}/api/historical?range=${range}&modulo=${module}`;
-    if (from && to) url += `&from=${from}&to=${to}`;
-    
-    try {
-      const res = await fetch(url);
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.timestamps && data.timestamps.length > 0) {
-          allData[module] = data;
-        }
-      }
-    } catch (err) {
-      console.error(`Error fetching data for module ${module}:`, err);
-    }
-  }
-  
-  return allData;
 }
 
 function applyCustomRange() {
@@ -1004,7 +611,7 @@ function applyCustomRange() {
   const to = document.getElementById('toDate').value;
 
   if (!from || !to) {
-    alert('Por favor selecciona ambas fechas (desde y hasta)');
+    showDashboardAlert(t('dashboard.custom_range_required'), 'warning');
     return;
   }
 
@@ -1119,62 +726,18 @@ setInterval(() => {
     loadHistorical(range);
   }
 }, 10000);
-// =========================================================
-// FUNCIONES DE CALIBRACIÓN MANUAL (para consola)
-// =========================================================
-
-function calibrateMQ7(adcValue) {
-  if (adcValue && adcValue > 0) {
-    const Rs = calculateRs(adcValue, 'CO');
-    MQ7_R0 = Rs / 4.5;
-    console.log(`MQ-7 R0 calibrado: ${MQ7_R0.toFixed(0)}Ω (de ADC=${adcValue})`);
-    saveCalibrationToStorage();
-    alert(`MQ-7 calibrado: R0 = ${MQ7_R0.toFixed(0)}Ω (ADC: ${adcValue})`);
-  }
-}
-
-function calibrateMQ137(adcValue) {
-  if (adcValue && adcValue > 0) {
-    const Rs = calculateRs(adcValue, 'NH3');
-    MQ137_R0 = Rs / 5.0;
-    console.log(`MQ-137 R0 calibrado: ${MQ137_R0.toFixed(0)}Ω (de ADC=${adcValue})`);
-    saveCalibrationToStorage();
-    alert(`MQ-137 calibrado: R0 = ${MQ137_R0.toFixed(0)}Ω (ADC: ${adcValue})`);
-  }
-}
 
 // =========================================================
-// EXPORTAR FUNCIONES PARA CONSOLA DEL NAVEGADOR
-// =========================================================
-
-// Para usar desde consola del navegador:
-window.calibrateWithOutsideAir = calibrateWithOutsideAir;
-window.calibrateMQ7 = calibrateMQ7;
-window.calibrateMQ137 = calibrateMQ137;
-window.calibrateR0FromCleanAir = calibrateR0FromCleanAir;
-window.getCalibrationValues = () => ({
-  MQ7_R0, MQ137_R0,
-  CCS811_OFFSET, MQ7_OFFSET, MQ137_OFFSET,
-  ALTITUDE_METERS, ALTITUDE_FACTOR,
-  MQ7_EMPIRICAL_FACTOR: MQ7_EMPIRICAL_FACTOR,
-  MQ137_EMPIRICAL_FACTOR: MQ137_EMPIRICAL_FACTOR
-});
-
-window.adjustEmpiricalFactors = (mq7Factor, mq137Factor) => {
-  if (mq7Factor > 0) MQ7_EMPIRICAL_FACTOR = mq7Factor;
-  if (mq137Factor > 0) MQ137_EMPIRICAL_FACTOR = mq137Factor;
-  console.log(`Factores empíricos ajustados: MQ-7=${MQ7_EMPIRICAL_FACTOR}, MQ-137=${MQ137_EMPIRICAL_FACTOR}`);
-};
 // GESTIÓN DE UMBRALES
 // =========================================================
 
 // Configuración de rangos para sliders de umbrales
 const THRESHOLD_SLIDER_CONFIG = {
-  temperatura: { min: 0, max: 100, step: 0.5 },     // °C (0-100)
-  humedad: { min: 0, max: 100, step: 1 },           // %  (0-100)
-  co: { min: 0, max: 10000, step: 10 },             // ppm CO (0-10,000)
-  co2: { min: 0, max: 10000, step: 10 },            // ppm CO2 (0-10,000)
-  amoniaco: { min: 0, max: 10000, step: 10 }        // ppm NH3 (0-10,000)
+  temperatura: { min: -40, max: 125, step: 0.5 },
+  humedad: { min: 0, max: 100, step: 1 },
+  co: { min: 0, max: 500, step: 1 },
+  co2: { min: 400, max: 5000, step: 10 },
+  amoniaco: { min: 0, max: 100, step: 1 }
 };
 
 function getThresholdSliderConfig(variable) {
@@ -1331,15 +894,21 @@ async function saveThresholds() {
     });
 
     if (res.ok) {
-      alert('Umbrales actualizados correctamente');
+      showDashboardAlert(t('dashboard.thresholds_saved'), 'success');
       const modal = bootstrap.Modal.getInstance(document.getElementById('thresholdsModal'));
       modal.hide();
     } else {
-      throw new Error('Error saving thresholds');
+      throw new Error(await dashboardApiError(
+        res,
+        t('dashboard.thresholds_error')
+      ));
     }
   } catch (err) {
     console.error('Error saving thresholds:', err);
-    alert('Error guardando cambios');
+    showDashboardAlert(
+      err.message || t('dashboard.thresholds_error'),
+      'danger'
+    );
   }
 }
 

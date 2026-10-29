@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Poultry IoT System V2: secure environmental monitoring for broiler houses"
+type: software
+version: 1.0.0-rc.1
+license: MIT
+repository-code: "https://github.com/LUISFERNANDOG2/poultry-iot-system-v2"
+authors:
+  - family-names: "González González"
+    given-names: "Luis Fernando"
+    affiliation: "Tecnológico Nacional de México, campus San Juan del Río"
+  - family-names: "Castro Islas"
+    given-names: "Isaac"
+keywords:
+  - IoT
+  - poultry
+  - precision livestock farming
+  - MQTT
+  - NIST CSF 2.0
+  - security hardening
+# TODO(autores): agregar ORCID de cada autor, date-released al etiquetar
+# v1.0.0, y el DOI de Zenodo y el bloque preferred-citation con el artículo
+# de SoftwareX cuando existan.

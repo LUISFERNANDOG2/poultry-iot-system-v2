@@ -22,9 +22,11 @@
     <div class="col-sm-6 col-md-5">
       <div class="d-flex justify-content-between align-items-center mb-1">
         <span class="ctrl-label mb-0" data-i18n="dashboard.lbl_range">Rango</span>
+        {% if user_data.permissions.update_thresholds %}
         <button class="btn btn-sm btn-outline-secondary py-0" style="font-size:0.75rem;" data-bs-toggle="modal" data-bs-target="#thresholdsModal">
           <i class="bi bi-sliders me-1"></i><span data-i18n="dashboard.btn_thresholds">Umbrales</span>
         </button>
+        {% endif %}
       </div>
       <select class="form-select form-select-sm" id="rangeSelect">
         <option value="1m"  data-i18n="dashboard.range_1m">Último minuto</option>
@@ -40,14 +42,14 @@
       </select>
     </div>
     <div class="col-sm-12 col-md-4">
-      <span class="ctrl-label">Sensor opcional</span>
+      <span class="ctrl-label" data-i18n="dashboard.optional_sensor">Sensor opcional</span>
       <div>
-        <label class="wind-chip" for="windSpeedToggle">
-          <input class="form-check-input" type="checkbox" role="switch" id="windSpeedToggle" onchange="onWindToggle(this.checked)">
+        <label class="wind-chip" for="airVelocityToggle">
+          <input class="form-check-input" type="checkbox" role="switch" id="airVelocityToggle" onchange="onAirVelocityToggle(this.checked)">
           <i class="bi bi-wind"></i>
-          <span data-i18n="dashboard.wind_toggle">Vel. Viento</span>
+          <span data-i18n="dashboard.air_velocity_toggle">Velocidad del aire</span>
         </label>
-        <span class="wind-chip-hint" data-i18n="dashboard.wind_toggle_hint">Activa si el módulo tiene anemómetro</span>
+        <span class="wind-chip-hint" data-i18n="dashboard.air_velocity_toggle_hint">Activa si el módulo tiene anemómetro</span>
       </div>
     </div>
   </div>
@@ -59,6 +61,7 @@
 </div>
 
 <!-- Thresholds Modal -->
+{% if user_data.permissions.update_thresholds %}
 <div class="modal fade" id="thresholdsModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
@@ -92,6 +95,7 @@
     </div>
   </div>
 </div>
+{% endif %}
 
 <!-- Parvada Info Card — shown when selected module has an assigned flock -->
 <div id="parvadaCard" class="card border-start border-4 border-warning mb-3" style="display:none;">
@@ -166,8 +170,7 @@
       </div>
       <div class="sensor-body">
         <div class="sensor-label" data-i18n="dashboard.card_ammonia">Amoniaco</div>
-        <div class="sensor-value" id="ammonia_raw">-- ADC</div>
-        <div class="sensor-value-sub" id="ammonia_ppm">-- ppm</div>
+        <div class="sensor-value" id="ammonia">-- ppm</div>
         <div class="sensor-delta" id="nh3_delta"><span class="delta-neutral">—</span></div>
       </div>
     </div>
@@ -180,8 +183,7 @@
       </div>
       <div class="sensor-body">
         <div class="sensor-label" data-i18n="dashboard.card_co">CO</div>
-        <div class="sensor-value" id="co_raw">-- ADC</div>
-        <div class="sensor-value-sub" id="co_ppm">-- ppm</div>
+        <div class="sensor-value" id="co">-- ppm</div>
         <div class="sensor-delta" id="co_delta"><span class="delta-neutral">—</span></div>
       </div>
     </div>
@@ -195,7 +197,6 @@
       <div class="sensor-body">
         <div class="sensor-label" data-i18n="dashboard.card_co2">CO₂</div>
         <div class="sensor-value" id="co2">-- ppm</div>
-        <div class="sensor-value-sub" id="co2_info"></div>
         <div class="sensor-delta" id="co2_delta"><span class="delta-neutral">—</span></div>
       </div>
     </div>
@@ -207,36 +208,23 @@
         <i class="bi bi-circle"></i>
       </div>
       <div class="sensor-body">
-        <div class="sensor-label" data-i18n="dashboard.card_o2">Oxígeno</div>
-        <div class="sensor-value" id="o2">-- %</div>
-        <div class="sensor-delta" id="o2_delta"><span class="delta-neutral">—</span></div>
+        <div class="sensor-label" data-i18n="dashboard.card_oxygen">Oxígeno</div>
+        <div class="sensor-value" id="oxygen">-- %</div>
+        <div class="sensor-delta" id="oxygen_delta"><span class="delta-neutral">—</span></div>
       </div>
     </div>
   </div>
 
-  <!-- Viento y temp efectiva: solo visibles con toggle ON -->
-  <div class="col-6 col-md mb-3 card-wind" style="display:none;">
+  <!-- Velocidad del aire: solo visible con el toggle activo -->
+  <div class="col-6 col-md mb-3 card-air-velocity" style="display:none;">
     <div class="sensor-card">
       <div class="sensor-icon-wrap sensor-icon-wind">
         <i class="bi bi-wind"></i>
       </div>
       <div class="sensor-body">
-        <div class="sensor-label" data-i18n="dashboard.card_wind">Vel. Viento</div>
-        <div class="sensor-value" id="wind_speed">-- m/s</div>
-        <div class="sensor-delta" id="wind_delta"><span class="delta-neutral">—</span></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="col-6 col-md mb-3 card-wind" style="display:none;">
-    <div class="sensor-card">
-      <div class="sensor-icon-wrap sensor-icon-eff">
-        <i class="bi bi-thermometer-sun"></i>
-      </div>
-      <div class="sensor-body">
-        <div class="sensor-label" data-i18n="dashboard.card_effective_temp">Temp. Efectiva</div>
-        <div class="sensor-value" id="effective_temp" style="color:#00897b;">-- °C</div>
-        <div class="sensor-value-sub" data-i18n="dashboard.effective_temp_label">Sensación térmica</div>
+        <div class="sensor-label" data-i18n="dashboard.card_air_velocity">Velocidad del aire</div>
+        <div class="sensor-value" id="air_velocity">-- m/s</div>
+        <div class="sensor-delta" id="air_velocity_delta"><span class="delta-neutral">—</span></div>
       </div>
     </div>
   </div>
@@ -314,34 +302,23 @@
     <div class="chart-container">
       <div class="chart-header">
         <div class="chart-title">
-          <div class="chart-title-icon" style="background:rgba(2,136,209,0.1);color:#0288d1;"><i class="bi bi-circle"></i></div>
-          <span data-i18n="dashboard.card_o2">Oxígeno</span>
+          <div class="chart-title-icon" style="background:rgba(0,137,123,0.1);color:#00897b;"><i class="bi bi-circle"></i></div>
+          <span data-i18n="dashboard.card_oxygen">Oxígeno</span>
         </div>
       </div>
-      <canvas id="o2Chart"></canvas>
+      <canvas id="oxygenChart"></canvas>
     </div>
   </div>
-  <!-- Gráficas de viento y temp. efectiva: solo visibles con toggle ON -->
-  <div class="col-md-6 chart-wind" style="display:none;">
+  <!-- Gráfica de velocidad del aire: solo visible con el toggle activo -->
+  <div class="col-md-6 chart-air-velocity" style="display:none;">
     <div class="chart-container">
       <div class="chart-header">
         <div class="chart-title">
           <div class="chart-title-icon" style="background:rgba(84,110,122,0.1);color:#546e7a;"><i class="bi bi-wind"></i></div>
-          <span data-i18n="dashboard.card_wind">Vel. Viento</span>
+          <span data-i18n="dashboard.card_air_velocity">Velocidad del aire</span>
         </div>
       </div>
-      <canvas id="windChart"></canvas>
-    </div>
-  </div>
-  <div class="col-md-6 chart-wind" style="display:none;">
-    <div class="chart-container">
-      <div class="chart-header">
-        <div class="chart-title">
-          <div class="chart-title-icon" style="background:rgba(0,137,123,0.1);color:#00897b;"><i class="bi bi-thermometer-sun"></i></div>
-          <span data-i18n="dashboard.card_effective_temp">Temp. Efectiva</span>
-        </div>
-      </div>
-      <canvas id="effectiveTempChart"></canvas>
+      <canvas id="airVelocityChart"></canvas>
     </div>
   </div>
 </div>
@@ -349,8 +326,8 @@
 <!-- Mini alertas activas -->
 <div class="mini-alerts-card mb-4" id="miniAlertsSection" style="display:none;">
   <div class="d-flex justify-content-between align-items-center mb-2">
-    <h6 class="mb-0 fw-bold"><i class="bi bi-bell-fill text-danger me-2"></i>Alertas del sistema</h6>
-    <a href="/alerts" class="btn btn-sm btn-outline-danger" style="font-size:0.75rem;">Ver todas</a>
+    <h6 class="mb-0 fw-bold"><i class="bi bi-bell-fill text-danger me-2"></i><span data-i18n="dashboard.mini_alerts_title">Alertas del sistema</span></h6>
+    <a href="/alerts" class="btn btn-sm btn-outline-danger" style="font-size:0.75rem;" data-i18n="dashboard.mini_alerts_all">Ver todas</a>
   </div>
   <div id="miniAlertsList"></div>
 </div>
@@ -358,54 +335,49 @@
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 
 <script>
+  // El sondeo de datos en vivo e históricos se programa en dashboard.js.
   document.addEventListener('DOMContentLoaded', function () {
     initializeDashboard();
-    // Restore wind speed toggle state
-    const windEnabled = localStorage.getItem('wind_speed_enabled') === 'true';
-    document.getElementById('windSpeedToggle').checked = windEnabled;
-    applyWindToggle(windEnabled);
-    // Refresh live data every 5 seconds
-    setInterval(updateLiveData, 5000);
+    const airVelocityEnabled = isAirVelocityEnabled();
+    const toggle = document.getElementById('airVelocityToggle');
+    if (toggle) toggle.checked = airVelocityEnabled;
+    applyAirVelocityToggle(airVelocityEnabled);
   });
 
   // Re-init charts labels when language changes
   document.addEventListener('langchange', function () {
-    if (window.temperatureChart) {
+    if (typeof temperatureChart !== 'undefined' && temperatureChart) {
       temperatureChart.data.datasets[0].label = t('dashboard.chart_temp');
       temperatureChart.update('none');
     }
-    if (window.humidityChart) {
+    if (typeof humidityChart !== 'undefined' && humidityChart) {
       humidityChart.data.datasets[0].label = t('dashboard.chart_hum');
       humidityChart.update('none');
     }
-    if (window.ammoniaChart) {
+    if (typeof ammoniaChart !== 'undefined' && ammoniaChart) {
       ammoniaChart.data.datasets[0].label = t('dashboard.chart_nh3');
       ammoniaChart.update('none');
     }
-    if (window.coChart) {
+    if (typeof coChart !== 'undefined' && coChart) {
       coChart.data.datasets[0].label = t('dashboard.chart_co');
       coChart.update('none');
     }
-    if (window.co2Chart) {
+    if (typeof co2Chart !== 'undefined' && co2Chart) {
       co2Chart.data.datasets[0].label = t('dashboard.chart_co2');
       co2Chart.update('none');
     }
-    if (window.o2Chart) {
-      o2Chart.data.datasets[0].label = t('dashboard.chart_o2');
-      o2Chart.update('none');
+    if (typeof oxygenChart !== 'undefined' && oxygenChart) {
+      oxygenChart.data.datasets[0].label = t('dashboard.chart_oxygen');
+      oxygenChart.update('none');
     }
-    if (window.windChart) {
-      windChart.data.datasets[0].label = t('dashboard.chart_wind');
-      windChart.update('none');
-    }
-    if (window.effectiveTempChart) {
-      effectiveTempChart.data.datasets[0].label = t('dashboard.chart_effective_temp');
-      effectiveTempChart.update('none');
+    if (typeof airVelocityChart !== 'undefined' && airVelocityChart) {
+      airVelocityChart.data.datasets[0].label = t('dashboard.chart_air_velocity');
+      airVelocityChart.update('none');
     }
     // Update connection badge text
     const badge = document.getElementById('connectionStatus');
     if (badge) {
-      const isConnected = badge.classList.contains('bg-success');
+      const isConnected = badge.classList.contains('text-success');
       badge.textContent = isConnected ? t('dashboard.connected') : t('dashboard.disconnected');
     }
   });

@@ -1,0 +1,9 @@
+# Hallazgos revisados de gitleaks. Formato: commit:archivo:regla:línea
+#
+# Llave de ingesta publicada en .env.example (junio de 2026). Ya no está en el
+# código; la API rechaza arrancar con ella (KNOWN_LEAKED_SECRET_SHA256). La
+# rotación en los servidores es responsabilidad de quien los opera.
+321487267b959662b3a4fe1810b40c141957a8c4:.env.example:generic-api-key:11
+#
+# Contraseña aleatoria de prueba generada por el escenario T16 del arnés.
+2b07d6898695e5f513e09f1b50fcc0300bdd2618:Pentesting/scenarios/t16_registration_privilege_escalation.py:generic-api-key:34

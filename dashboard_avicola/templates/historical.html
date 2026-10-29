@@ -53,6 +53,7 @@
           <option value="humidity">Humedad</option>
           <option value="nh3">NH3</option>
           <option value="co2">CO2</option>
+          <option value="oxygen">Oxígeno</option>
         </select>
       </div>
     </div>
@@ -133,11 +134,11 @@
             <th style="cursor:pointer;" onclick="sortTable('house')"><span data-i18n="historical.col_module">Módulo</span> <span id="sort-house">↕</span></th>
             <th style="cursor:pointer;" onclick="sortTable('temperature')"><span data-i18n="historical.col_temp">Temperatura (°C)</span> <span id="sort-temperature">↕</span></th>
             <th style="cursor:pointer;" onclick="sortTable('humidity')"><span data-i18n="historical.col_hum">Humedad (%)</span> <span id="sort-humidity">↕</span></th>
-            <th style="cursor:pointer;" onclick="sortTable('nh3')"><span data-i18n="historical.col_nh3">NH3 (ADC)</span> <span id="sort-nh3">↕</span></th>
+            <th style="cursor:pointer;" onclick="sortTable('nh3')"><span data-i18n="historical.col_nh3">NH3 (ppm)</span> <span id="sort-nh3">↕</span></th>
             <th style="cursor:pointer;" onclick="sortTable('co2')"><span data-i18n="historical.col_co2">CO2 (ppm)</span> <span id="sort-co2">↕</span></th>
-            <th style="cursor:pointer;" onclick="sortTable('co')"><span data-i18n="historical.col_co">CO (ADC)</span> <span id="sort-co">↕</span></th>
-            <th style="cursor:pointer;" onclick="sortTable('o2')"><span data-i18n="historical.col_o2">O₂ (%)</span> <span id="sort-o2">↕</span></th>
-            <th style="cursor:pointer;" onclick="sortTable('wind')"><span data-i18n="historical.col_wind">Viento (m/s)</span> <span id="sort-wind">↕</span></th>
+            <th style="cursor:pointer;" onclick="sortTable('co')"><span data-i18n="historical.col_co">CO (ppm)</span> <span id="sort-co">↕</span></th>
+            <th style="cursor:pointer;" onclick="sortTable('oxygen')"><span data-i18n="historical.col_oxygen">Oxígeno (% vol.)</span> <span id="sort-oxygen">↕</span></th>
+            <th style="cursor:pointer;" onclick="sortTable('air_velocity')"><span data-i18n="historical.col_air_velocity">Velocidad del aire (m/s)</span> <span id="sort-air_velocity">↕</span></th>
           </tr>
         </thead>
         <tbody id="dataTableBody">
@@ -174,8 +175,8 @@
           <button type="button" class="btn btn-outline-primary" data-param="nh3"         onclick="switchChart(this.dataset.param)">NH3</button>
           <button type="button" class="btn btn-outline-primary" data-param="co2"         onclick="switchChart(this.dataset.param)">CO2</button>
           <button type="button" class="btn btn-outline-primary" data-param="co"          onclick="switchChart(this.dataset.param)">CO</button>
-          <button type="button" class="btn btn-outline-primary" data-param="o2"          onclick="switchChart(this.dataset.param)" data-i18n="historical.btn_o2">O₂</button>
-          <button type="button" class="btn btn-outline-primary" data-param="wind"        onclick="switchChart(this.dataset.param)" data-i18n="historical.btn_wind">Viento</button>
+          <button type="button" class="btn btn-outline-primary" data-param="oxygen"      onclick="switchChart(this.dataset.param)" data-i18n="historical.btn_oxygen">Oxígeno</button>
+          <button type="button" class="btn btn-outline-primary" data-param="air_velocity" onclick="switchChart(this.dataset.param)" data-i18n="historical.btn_air_velocity">Velocidad del aire</button>
         </div>
       </div>
       <canvas id="dataChart"></canvas>
@@ -194,7 +195,7 @@
   let allData = [];
   let filteredData = [];
   let thresholds = {};
-  const API_BASE = `${window.location.protocol}//${window.location.hostname}:5000`;
+  const API_BASE = window.location.origin;
 
   async function populateHouseSelect() {
     try {
@@ -242,7 +243,7 @@
     const house = document.getElementById('houseSelect').value;
     const range = document.getElementById('dateRange').value;
     const parameter = document.getElementById('parameterFilter').value;
-    let url = `${window.location.protocol}//${window.location.hostname}:5000/api/historical?range=${range}`;
+    let url = `${window.location.origin}/api/historical?range=${range}`;
 
     if (house !== 'all') url += `&modulo=${house}`;
     if (parameter !== 'all') url += `&parameter=${parameter}`;
@@ -275,8 +276,8 @@
           nh3: data.ammonia[i],
           co2: data.co2[i],
           co: data.co ? data.co[i] : null,
-          o2: data.oxygen ? data.oxygen[i] : null,
-          wind: data.wind_speed ? data.wind_speed[i] : null
+          oxygen: data.oxygen ? data.oxygen[i] : null,
+          air_velocity: data.air_velocity ? data.air_velocity[i] : null
         };
         return row;
       });
@@ -320,8 +321,8 @@
       <td class="${row.nh3 != null ? getCellClass('amoniaco', row.nh3) : 'status-empty'}">${row.nh3 != null ? row.nh3.toFixed(2) : '-'}</td>
       <td class="${row.co2 != null ? getCellClass('co2', row.co2) : 'status-empty'}">${row.co2 != null ? row.co2.toFixed(0) : '-'}</td>
       <td class="${row.co != null ? getCellClass('co', row.co) : 'status-empty'}">${row.co != null ? row.co.toFixed(2) : '-'}</td>
-      <td class="${row.o2 != null ? 'status-normal' : 'status-empty'}">${row.o2 != null ? row.o2.toFixed(1) : '-'}</td>
-      <td class="${row.wind != null ? 'status-normal' : 'status-empty'}">${row.wind != null ? row.wind.toFixed(1) : '-'}</td>
+      <td class="${row.oxygen != null ? getCellClass('oxigeno', row.oxygen) : 'status-empty'}">${row.oxygen != null ? row.oxygen.toFixed(2) : '-'}</td>
+      <td class="${row.air_velocity != null ? 'status-normal' : 'status-empty'}">${row.air_velocity != null ? row.air_velocity.toFixed(1) : '-'}</td>
     </tr>
   `).join('');
 
@@ -418,7 +419,7 @@
     // Filter by search text (other filters are handled by API)
     filteredData = allData.filter(row => {
       if (search) {
-        const searchStr = `${row.house} ${row.temperature} ${row.humidity} ${row.nh3} ${row.co2} ${row.co} ${row.o2} ${row.wind}`.toLowerCase();
+        const searchStr = `${row.house} ${row.temperature} ${row.humidity} ${row.nh3} ${row.co2} ${row.co} ${row.oxygen} ${row.air_velocity}`.toLowerCase();
         if (!searchStr.includes(search)) return false;
       }
       return true;
@@ -436,7 +437,7 @@
 
     if (filteredData.length > 0) {
       // Anomalías (Crítico + Alto)
-      const anomalies = filteredData.filter(r => getCellClass('temperatura', r.temperature) === 'status-critical' || getCellClass('humedad', r.humidity) === 'status-critical' || getCellClass('amoniaco', r.nh3) === 'status-critical' || getCellClass('co2', r.co2) === 'status-critical' || getCellClass('co', r.co) === 'status-critical').length;
+      const anomalies = filteredData.filter(r => getCellClass('temperatura', r.temperature) === 'status-critical' || getCellClass('humedad', r.humidity) === 'status-critical' || getCellClass('amoniaco', r.nh3) === 'status-critical' || getCellClass('co2', r.co2) === 'status-critical' || getCellClass('co', r.co) === 'status-critical' || getCellClass('oxigeno', r.oxygen) === 'status-critical').length;
       document.getElementById('anomalies').textContent = anomalies;
     } else {
       document.getElementById('anomalies').textContent = '0';
@@ -444,6 +445,8 @@
   }
 
   function updateChart() {
+    // i18n dispara 'langchange' al cargar, antes de que exista la gráfica.
+    if (!dataChart) return;
     const chartData = filteredData.slice(0, 1000).reverse();
 
     const activeBtn = document.querySelector('.btn-group .active');
@@ -455,8 +458,8 @@
     else if (parameter === 'nh3')      { key = 'nh3';         color = 'rgba(251, 140, 0, 1)'; }
     else if (parameter === 'co2')      { key = 'co2';         color = 'rgba(229, 57, 53, 1)'; }
     else if (parameter === 'co')       { key = 'co';          color = 'rgba(0, 0, 0, 1)'; }
-    else if (parameter === 'o2')       { key = 'o2';          color = 'rgba(2, 136, 209, 1)'; }
-    else if (parameter === 'wind')     { key = 'wind';        color = 'rgba(100, 100, 200, 1)'; }
+    else if (parameter === 'oxygen')   { key = 'oxygen';      color = 'rgba(0, 137, 123, 1)'; }
+    else if (parameter === 'air_velocity') { key = 'air_velocity'; color = 'rgba(100, 100, 200, 1)'; }
     if (!color) color = 'rgba(67, 160, 71, 1)';
 
     // Formato {x: Date, y: valor} para escala de tiempo
@@ -559,7 +562,7 @@
     
     // Create CSV with proper formatting
     const csv = [
-      ['FechaHora', 'Módulo', 'Temperatura (°C)', 'Humedad (%)', 'NH3 (ppm)', 'CO2 (ppm)', 'CO (ppm)', 'O2 (%)', 'Viento (m/s)'].join(','),
+      ['FechaHora', 'Módulo', 'Temperatura (°C)', 'Humedad (%)', 'NH3 (ppm)', 'CO2 (ppm)', 'CO (ppm)', 'Oxígeno (% vol.)', 'Velocidad del aire (m/s)'].join(','),
       ...filteredData.map(row => [
         `"${row.timestamp.toISOString()}"`,
         `"${row.house}"`,
@@ -568,8 +571,8 @@
         row.nh3 != null ? row.nh3.toFixed(2) : '',
         row.co2 != null ? row.co2.toFixed(0) : '',
         row.co != null ? row.co.toFixed(2) : '',
-        row.o2 != null ? row.o2.toFixed(1) : '',
-        row.wind != null ? row.wind.toFixed(1) : ''
+        row.oxygen != null ? row.oxygen.toFixed(2) : '',
+        row.air_velocity != null ? row.air_velocity.toFixed(1) : ''
       ].join(','))
     ].join('\n');
 
