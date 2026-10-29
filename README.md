@@ -24,7 +24,6 @@ Framework 2.0 and are measured with an included penetration-testing harness.
 - [Architecture](#architecture)
 - [Screenshots](#screenshots)
 - [Security controls](#security-controls)
-- [Security evaluation](#security-evaluation)
 - [Quick start](#quick-start)
 - [Sensor nodes](#sensor-nodes)
 - [Telemetry contract](#telemetry-contract)
@@ -115,31 +114,6 @@ register and residual risks are in
 | **Detect** | Security-event log for authentication, MFA, privileged actions and rejected MQTT messages; node heartbeat and last-will status; CI with Bandit, Gitleaks, pip-audit and container and Nginx checks |
 | **Respond** | Threshold alerts with acknowledge/resolve workflow and optional Telegram notification; lockout and rate-limit responses recorded as events |
 | **Recover** | Daily compressed backups, encrypted off-site copy (3-2-1), scripted restore test and documented RTO/RPO targets |
-
-## Security evaluation
-
-`Pentesting/` contains a harness of 16 attack scenarios (T01-T16) that runs the
-same attacks against the baseline (E0, the system before hardening, commit
-`15ea85f`) and the hardened version (E1). Each scenario is repeated 30 times.
-
-Local run of 28 October 2026 (E1 behind Nginx with TLS):
-
-| Indicator | E0 baseline | E1 hardened |
-|---|---|---|
-| Attacker success, mean over the 11 scenarios evaluated in both | 100.0 % | 1.2 % |
-| Scenarios where the attacker succeeded at least once | 11 of 11 | 1 of 11 |
-
-The only non-zero E1 result is invalid-credential guessing (T02, 13.3 %): the
-first four wrong passwords get a normal 401 before the account locks on the
-fifth, as designed. MFA bypass, lockout bypass and anomaly-event detection (T10,
-T11, T15) do not exist in E0, so they are reported for E1 only (0 %). Raw JSON,
-tables and chart are in
-[Pentesting/evidence/2026-10-28-local/](Pentesting/evidence/2026-10-28-local/).
-
-![Attacker success by scenario, E0 vs E1](Pentesting/evidence/2026-10-28-local/reports/grafico_comparativo.png)
-
-To reproduce against **your own** test deployment, see
-[Pentesting/README.md](Pentesting/README.md).
 
 ## Quick start
 
