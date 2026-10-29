@@ -50,17 +50,15 @@ API y dashboard rechazan el arranque si `SECRET_KEY` no existe o tiene menos
 de 32 caracteres. Se elimina el fallback `dev-secret-key`; los valores reales
 siguen fuera de Git y se inyectan mediante el entorno del despliegue.
 
-### R-02: aceptación controlada
+### R-02: cerrado
 
-La lectura pública de telemetría y metadatos operativos se conserva para no
-romper el contrato actual del dashboard detrás de Nginx. Se acepta con estas
-condiciones:
-
-- sólo métodos GET y datos operativos sin credenciales ni datos personales;
-- HTTPS y cabeceras de seguridad en producción;
-- límites específicos por endpoint;
-- límites de filas/puntos donde aplique;
-- revisión obligatoria antes de agregar campos nuevos.
+Esta sección aceptaba la lectura pública de telemetría y metadatos operativos.
+El commit `9e5de36` (octubre de 2026) agregó `auth_required()` a todos los GET
+de lectura (`/lecturas`, `/api/live-data`, `/api/historical`, `/api/umbrales`,
+`/api/alerts`, `/api/alerts/stats`, `/api/granjas`, `/api/naves`,
+`/api/modulos`, `/api/parvada/...`), y en la versión 1.0.0 Nginx manda todo
+`/api/*` del navegador al dashboard, que verifica la sesión antes de reenviar a
+la API. Ya no hay lecturas anónimas; el escenario T01 del arnés lo comprueba.
 
 ## 3. Validación local en WSL
 

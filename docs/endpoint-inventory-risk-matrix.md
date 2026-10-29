@@ -43,10 +43,10 @@ tokens, secretos MFA, certificados privados, dumps o salidas completas de
 Internet
   |
   +-- TCP 80/443 --> Nginx + Certbot
-                       |-- /api/security-events --> dashboard:5001
-                       |-- /api/*                 --> api:5000
-                       |-- /lecturas              --> api:5000
-                       `-- /*                      --> dashboard:5001
+                       |-- /api/*      --> dashboard:5001 (sesión) --> api:5000 (llave de proxy)
+                       |-- /backend/*  --> api:5000 (clientes con JWT)
+                       |-- /lecturas   --> api:5000 (X-Ingest-Key)
+                       `-- /*          --> dashboard:5001
 
 Host / loopback
   |-- 127.0.0.1:1883 --> Mosquitto autenticado, sin TLS
@@ -85,14 +85,15 @@ ajenos a Compose; esa evidencia se obtiene en el Droplet.
 
 | Regla pública | Destino | Consecuencia de seguridad |
 | --- | --- | --- |
-| `location = /api/security-events` | Dashboard `127.0.0.1:5001` | La consulta del navegador usa sesión y roles `admin`/`operador` |
-| `location /api/` | API `127.0.0.1:5000` | El resto de `/api/*` aplica el control definido directamente en la API |
-| `location /lecturas` | API `127.0.0.1:5000` | `POST` requiere `X-Ingest-Key`; `GET` continúa público |
+| `location /api/` | Dashboard `127.0.0.1:5001` | El navegador usa la sesión del dashboard; el dashboard verifica rol y reenvía a la API con `X-Dashboard-Proxy-Key` |
+| `location /backend/` | API `127.0.0.1:5000` (sin el prefijo) | Clientes con JWT (scripts, arnés de pentesting); cada endpoint aplica su propio control |
+| `location /lecturas` | API `127.0.0.1:5000` | `POST` requiere `X-Ingest-Key`; `GET` requiere JWT |
 | `location /` | Dashboard `127.0.0.1:5001` | Login, páginas y recursos estáticos usan la sesión del dashboard |
 
-La coincidencia exacta de `/api/security-events` es intencional. El endpoint
-más largo `/api/security-events/ingest` continúa hacia la API y exige su llave
-de servicio independiente.
+Todas las reglas vacían `X-Dashboard-Proxy-Key`, `X-Dashboard-User-Id` y
+`X-Dashboard-Source-IP`, así que un cliente externo no puede hacerse pasar por
+el dashboard. `/api/security-events/ingest` sólo se alcanza por `/backend/` y
+exige su llave de servicio independiente.
 
 ## 6. Modelos de autenticación y autorización
 
@@ -130,37 +131,37 @@ sólo el `bind` del contenedor.
 
 | Ruta | Métodos | Ingreso público | Control actual | Estado / riesgo asociado |
 | --- | --- | --- | --- | --- |
-| `/api/health` | GET | Sí, vía `/api/` | Healthcheck mínimo y consulta `SELECT 1` | **Mitigado**; no devuelve versiones ni credenciales |
+| `/api/health` | GET | Sí, vía `/backend/` | Healthcheck mínimo y consulta `SELECT 1` | **Mitigado**; no devuelve versiones ni credenciales |
 | `/lecturas` | POST | Sí | `X-Ingest-Key`, esquema, tipos, rangos, duplicados y límite `600/min` | **Mitigado**; R-04/R-17 |
-| `/lecturas` | GET | Sí | Sin autenticación; última lectura por módulo y límite `120/min` | **Aceptado con monitoreo**; exposición controlada, R-02/R-17 |
-| `/api/live-data` | GET | Sí | Público y límite específico `120/min` | **Aceptado con monitoreo**; R-02, R-17 mitigado |
-| `/api/historical` | GET | Sí | Público, filtros, máximo 1500 puntos y límite `30/min` | **Aceptado con monitoreo**; R-02, R-17 mitigado |
+| `/lecturas` | GET | Sí | JWT/proxy, cualquier rol; última lectura por módulo y límite `120/min` | **Mitigado**; R-02/R-17 |
+| `/api/live-data` | GET | Sí | JWT/proxy, cualquier rol, y límite `120/min` | **Mitigado**; R-02/R-17 |
+| `/api/historical` | GET | Sí | JWT/proxy, cualquier rol; filtros, máximo 1500 puntos y límite `30/min` | **Mitigado**; R-02/R-17 |
 | `/api/register` | POST | Sí | JWT `admin`, MFA verificado, límite `5/hour`, hash fuerte y auditoría | **Mitigado**; R-01 |
 | `/api/login` | POST | Sí | Límite `10/min`, bloqueo persistente, JWT y MFA admin | **Mitigado**; R-05 |
 | `/api/mfa/verify` | POST | Sí | Reto firmado y corto, TOTP, anti-replay y límite `10/min` | **Mitigado**; R-05 |
 | `/api/auth/verify` | GET | Sí | Bearer obligatorio, firma, tipo, expiración y usuario | **Mitigado** |
 | `/api/user/<int:user_id>` | GET | Sí | JWT o proxy interno; usuario autenticado | **Mitigado con alcance amplio**; cualquier usuario autenticado puede consultar perfiles serializados |
 | `/api/user/<int:user_id>` | PUT | Sí | Propio perfil o `admin`; campos permitidos; auditoría | **Mitigado**; R-06 |
-| `/api/umbrales` | GET | Sí | Sin autenticación | **Parcial**; R-02 |
+| `/api/umbrales` | GET | Sí | JWT/proxy, cualquier rol | **Mitigado**; R-02 |
 | `/api/umbrales` | POST | Sí | JWT/proxy; `admin` o `operador`; orden validado | **Mitigado**; R-06 |
 | `/api/umbrales/init` | POST | Sí | JWT/proxy; sólo `admin` | **Mitigado**; R-06 |
-| `/api/alerts` | GET | Sí | Sin autenticación, máximo solicitado y límite `60/min` | **Aceptado con monitoreo**; R-02, R-17 mitigado |
-| `/api/alerts/stats` | GET | Sí | Sin autenticación y límite `60/min` | **Aceptado con monitoreo**; R-02, R-17 mitigado |
+| `/api/alerts` | GET | Sí | JWT/proxy, cualquier rol; máximo solicitado y límite `60/min` | **Mitigado**; R-02/R-17 |
+| `/api/alerts/stats` | GET | Sí | JWT/proxy, cualquier rol, y límite `60/min` | **Mitigado**; R-02/R-17 |
 | `/api/alerts/<int:alert_id>` | PUT | Sí | JWT/proxy; `admin` o `operador` | **Mitigado**; R-06 |
 | `/api/alerts/mark-all` | PUT | Sí | JWT/proxy; `admin` o `operador` | **Mitigado**; R-06 |
 | `/api/alerts/all` | DELETE | Sí | JWT/proxy; sólo `admin`; acción auditada | **Mitigado**; R-06 |
 | `/api/alerts/check` | POST | Sí | JWT/proxy; `admin` o `operador` | **Mitigado**; R-06 |
 | `/api/security-events` | GET | No por esta aplicación en Nginx | JWT/proxy; `admin` o `operador` | **Mitigado**; la ruta pública exacta va al dashboard |
 | `/api/security-events/ingest` | POST | Sí | `X-Security-Events-Key`, campos permitidos y sanitización | **Mitigado**; R-07 |
-| `/api/granjas` | GET | Sí | Sin autenticación | **Parcial**; expone nombres y ubicaciones, R-02 |
+| `/api/granjas` | GET | Sí | JWT/proxy, cualquier rol | **Mitigado**; R-02 |
 | `/api/granjas` | POST | Sí | JWT/proxy; sólo `admin`; auditoría | **Mitigado**; R-06 |
 | `/api/granjas/<int:granja_id>` | PUT, DELETE | Sí | JWT/proxy; sólo `admin`; auditoría | **Mitigado**; R-06 |
-| `/api/naves` | GET | Sí | Sin autenticación | **Parcial**; metadatos operativos, R-02 |
+| `/api/naves` | GET | Sí | JWT/proxy, cualquier rol | **Mitigado**; R-02 |
 | `/api/naves` | POST | Sí | JWT/proxy; sólo `admin`; auditoría | **Mitigado**; R-06 |
 | `/api/naves/<int:nave_id>` | PUT, DELETE | Sí | JWT/proxy; sólo `admin`; auditoría | **Mitigado**; R-06 |
-| `/api/modulos` | GET | Sí | Sin autenticación | **Parcial**; estado y última actividad, R-02 |
+| `/api/modulos` | GET | Sí | JWT/proxy, cualquier rol | **Mitigado**; R-02 |
 | `/api/modulos/<string:codigo>` | PUT | Sí | JWT/proxy; `admin` o `operador`; auditoría | **Mitigado**; R-06 |
-| `/api/parvada/<string:modulo_codigo>` | GET | Sí | Sin autenticación y límite `60/min` | **Aceptado con monitoreo**; relación módulo/nave/granja, R-02; R-17 mitigado |
+| `/api/parvada/<string:modulo_codigo>` | GET | Sí | JWT/proxy, cualquier rol, y límite `60/min` | **Mitigado**; R-02/R-17 |
 
 ## 8. Inventario del dashboard y sus proxies
 
@@ -173,35 +174,31 @@ sólo el `bind` del contenedor.
 | `/logout` | POST | `login_required`, limpia sesión | Pública sólo con sesión válida |
 | `/dashboard` | GET | `login_required` | Pública sólo con sesión válida |
 | `/historical` | GET | `login_required` | Pública sólo con sesión válida |
-| `/analysis` | GET | `login_required` | Pública sólo con sesión válida |
 | `/alerts` | GET | `login_required` | Pública sólo con sesión válida |
 | `/devices` | GET | `login_required` | Pública sólo con sesión válida |
-| `/ml_models` | GET | `login_required` | Pública sólo con sesión válida |
-| `/reports` | GET | `login_required` | Pública sólo con sesión válida |
 | `/security-events` | GET | Sesión y rol `admin`/`operador` | Pública sólo con rol permitido |
-| `/api/security-events` | GET | Sesión y rol `admin`/`operador`; proxy con llave interna | La coincidencia exacta de Nginx llega al dashboard |
-| `/dashboard-api/user/<int:user_id>` | GET, PUT | Sesión; API aplica identidad, campos y rol | Pública por `location /`; proxy de perfil recomendado |
-| `/api/user/<int:user_id>` | GET, PUT | Ruta proxy equivalente con sesión | Nginx la envía a la API, no al dashboard |
-| `/api/historical` | GET | Sesión y límite `30/min` | Nginx la envía a la API pública con límite equivalente |
-| `/api/live-data` | GET | Sesión y límite `120/min` | Nginx la envía a la API pública con límite equivalente |
-| `/api/umbrales` | GET, POST | Sesión; escritura `admin`/`operador` | Nginx la envía a la API |
-| `/api/alerts` | GET | Sesión y límite `60/min` | Nginx la envía a la API pública con límite equivalente |
-| `/api/alerts/stats` | GET | Sesión y límite `60/min` | Nginx la envía a la API pública con límite equivalente |
-| `/api/alerts/<int:alert_id>` | PUT | Sesión y rol `admin`/`operador` | Nginx la envía a la API protegida |
-| `/api/alerts/mark-all` | PUT | Sesión y rol `admin`/`operador` | Nginx la envía a la API protegida |
-| `/api/alerts/all` | DELETE | Sesión y rol `admin` | Nginx la envía a la API protegida |
-| `/api/alerts/check` | POST | Sesión y rol `admin`/`operador` | Nginx la envía a la API protegida |
-| `/api/granjas` | GET, POST | Sesión; escritura `admin` | Nginx la envía a la API |
-| `/api/granjas/<int:granja_id>` | PUT, DELETE | Sesión y rol `admin` | Nginx la envía a la API protegida |
-| `/api/naves` | GET, POST | Sesión; escritura `admin` | Nginx la envía a la API |
-| `/api/naves/<int:nave_id>` | PUT, DELETE | Sesión y rol `admin` | Nginx la envía a la API protegida |
-| `/api/modulos` | GET | Sesión | Nginx la envía a la API pública |
-| `/api/modulos/<string:codigo>` | PUT | Sesión y rol `admin`/`operador` | Nginx la envía a la API protegida |
-| `/api/parvada/<string:modulo>` | GET | Sesión y límite `60/min` | Nginx la envía a la API pública con límite equivalente |
+| `/api/security-events` | GET | Sesión y rol `admin`/`operador`; proxy con llave interna | Nginx la envía al dashboard, que la reenvía a la API |
+| `/dashboard-api/user/<int:user_id>` | GET, PUT | Sesión; API aplica identidad, campos y rol | Pública por `location /`; proxy de perfil |
+| `/api/user/<int:user_id>` | GET, PUT | Ruta proxy equivalente con sesión | Nginx la envía al dashboard, que la reenvía a la API |
+| `/api/historical` | GET | Sesión y límite `30/min` | Nginx la envía al dashboard, que la reenvía a la API |
+| `/api/live-data` | GET | Sesión y límite `120/min` | Nginx la envía al dashboard, que la reenvía a la API |
+| `/api/umbrales` | GET, POST | Sesión; escritura `admin`/`operador` | Nginx la envía al dashboard, que la reenvía a la API |
+| `/api/alerts` | GET | Sesión y límite `60/min` | Nginx la envía al dashboard, que la reenvía a la API |
+| `/api/alerts/stats` | GET | Sesión y límite `60/min` | Nginx la envía al dashboard, que la reenvía a la API |
+| `/api/alerts/<int:alert_id>` | PUT | Sesión y rol `admin`/`operador` | Nginx la envía al dashboard, que la reenvía a la API |
+| `/api/alerts/mark-all` | PUT | Sesión y rol `admin`/`operador` | Nginx la envía al dashboard, que la reenvía a la API |
+| `/api/alerts/all` | DELETE | Sesión y rol `admin` | Nginx la envía al dashboard, que la reenvía a la API |
+| `/api/alerts/check` | POST | Sesión y rol `admin`/`operador` | Nginx la envía al dashboard, que la reenvía a la API |
+| `/api/granjas` | GET, POST | Sesión; escritura `admin` | Nginx la envía al dashboard, que la reenvía a la API |
+| `/api/granjas/<int:granja_id>` | PUT, DELETE | Sesión y rol `admin` | Nginx la envía al dashboard, que la reenvía a la API |
+| `/api/naves` | GET, POST | Sesión; escritura `admin` | Nginx la envía al dashboard, que la reenvía a la API |
+| `/api/naves/<int:nave_id>` | PUT, DELETE | Sesión y rol `admin` | Nginx la envía al dashboard, que la reenvía a la API |
+| `/api/modulos` | GET | Sesión | Nginx la envía al dashboard, que la reenvía a la API |
+| `/api/modulos/<string:codigo>` | PUT | Sesión y rol `admin`/`operador` | Nginx la envía al dashboard, que la reenvía a la API |
+| `/api/parvada/<string:modulo>` | GET | Sesión y límite `60/min` | Nginx la envía al dashboard, que la reenvía a la API |
 
-La existencia de un proxy protegido en el dashboard no protege por sí sola una
-ruta homónima que Nginx dirige primero a la API. La columna final documenta esa
-diferencia para evitar atribuir una mitigación inexistente.
+Desde la versión 1.0.0 todo `/api/*` del navegador pasa por el dashboard, así
+que la sesión y el rol se verifican dos veces: en el dashboard y en la API.
 
 ## 9. Inventario MQTT
 
@@ -239,7 +236,7 @@ configuración. Los estados son `Mitigado`, `Parcial`, `Aceptado con monitoreo`,
 | ID | Riesgo / activo | Inicial | Controles comprobables | Residual | Estado y siguiente acción |
 | --- | --- | :---: | --- | :---: | --- |
 | R-01 | Creación no autorizada de usuarios privilegiados mediante `POST /api/register` | Crítica | JWT `admin`, MFA verificado, límite `5/hour`, validación, hash fuerte y evento privilegiado | **Baja** | **Mitigado:** conservar pruebas 401/403/201 y revisar cada alta en eventos de seguridad |
-| R-02 | Exposición pública de telemetría, alertas y estructura de granjas/naves/módulos | Alta | TLS, sólo lectura, sin secretos directos, límites por endpoint y límites de resultados | **Media** | **Aceptado con monitoreo:** la compatibilidad del dashboard actual requiere lecturas públicas; no agregar campos personales o secretos y reevaluar autenticación en una versión mayor |
+| R-02 | Exposición pública de telemetría, alertas y estructura de granjas/naves/módulos | Alta | Lecturas con JWT o sesión del dashboard (commit `9e5de36`), TLS, límites por endpoint y de resultados | Baja | **Mitigado:** el arnés T01 confirma 401 sin token; revisar al agregar endpoints de lectura |
 | R-03 | Divulgación de errores internos mediante detalles de excepciones | Media | Respuestas 500 genéricas en API y dashboard; detalles conservados sólo en logs estructurados del host | **Baja** | **Mitigado:** prueba de regresión impide reintroducir `str(e)` o el secreto de desarrollo |
 | R-04 | Inyección o manipulación de telemetría | Alta | `X-Ingest-Key`, comparación constante, JSON/tipos/rangos, duplicados y auditoría | Baja | **Mitigado:** rotar la llave y vigilar rechazos |
 | R-05 | Fuerza bruta y apropiación de cuentas | Crítica | Hash scrypt, migración PBKDF2, límites, bloqueo persistente, JWT corto y MFA admin | Baja | **Mitigado:** revisar eventos de login y probar recuperación MFA |

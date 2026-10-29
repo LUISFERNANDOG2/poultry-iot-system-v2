@@ -6,22 +6,27 @@ las defensas locales de Flask.
 
 ## Alcance
 
-La configuración versionada conserva las rutas de producción actuales:
+Rutas de la configuración versionada (versión 1.0.0):
 
-- `/api/` y `/lecturas` hacia la API en `127.0.0.1:5000`;
-- `/api/security-events` hacia el proxy autenticado del dashboard en
-  `127.0.0.1:5001`;
+- `/api/` hacia el dashboard en `127.0.0.1:5001`, que verifica la sesión y
+  reenvía a la API con su llave interna;
+- `/backend/` hacia la API en `127.0.0.1:5000`, sin el prefijo, para clientes
+  con JWT;
+- `/lecturas` hacia la API en `127.0.0.1:5000`;
 - `/` hacia el dashboard en `127.0.0.1:5001`;
 - HTTPS y certificados administrados por Certbot;
 - redirección permanente de HTTP a HTTPS.
 
+Cada `location` vacía `X-Dashboard-Proxy-Key`, `X-Dashboard-User-Id` y
+`X-Dashboard-Source-IP` antes de reenviar.
+
 Los certificados, las llaves privadas y los archivos generados por Certbot no
 forman parte del repositorio.
 
-La coincidencia exacta `/api/security-events` preserva la sesión web y MFA del
-dashboard. La ruta más específica `/api/security-events/ingest` no coincide con
-ella y continúa por `/api/` hacia la API, donde conserva la autenticación
-técnica independiente del subscriber MQTT.
+`/api/security-events` del navegador llega al dashboard, que exige sesión, MFA
+y rol `admin`/`operador`. La ingesta `/api/security-events/ingest` la usa el
+subscriber MQTT por la red interna de Docker y conserva su llave técnica
+independiente.
 
 ## Problemas corregidos
 

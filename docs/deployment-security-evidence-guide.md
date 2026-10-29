@@ -454,10 +454,10 @@ certificado administrado por Certbot.
 
 ### Los eventos de seguridad no cargan
 
-Confirmar que la sesión y MFA sigan vigentes. En Nginx, la coincidencia exacta
-`/api/security-events` debe dirigirse al dashboard, mientras
-`/api/security-events/ingest` continúa hacia la API. Ejecutar primero
-`nginx -t`; no recargar una configuración inválida.
+Confirmar que la sesión y MFA sigan vigentes y que el rol sea `admin` u
+`operador`. En Nginx, `location /api/` debe dirigirse al dashboard
+(`127.0.0.1:5001`). Ejecutar primero `nginx -t`; no recargar una configuración
+inválida.
 
 ### `sudo` solicita contraseña durante el despliegue
 
