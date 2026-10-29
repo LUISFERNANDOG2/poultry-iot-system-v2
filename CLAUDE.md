@@ -38,18 +38,20 @@ scripts/generate_mqtt_tls_certs.sh
 docker compose up -d --build
 ```
 
-There are no default credentials. Create the first admin once, then enrol
-TOTP at its first login; further users are created by that admin:
+There are no default credentials and no public sign-up (`/register` only
+redirects). Create the first admin once (it enrols TOTP at its first login),
+then further users with `create-user`:
 
 ```bash
 docker compose exec api flask --app api_avicola.api:app create-admin --username <name>
+docker compose exec api flask --app api_avicola.api:app create-user --username <name> --role operador
 for f in scripts/migrations/*.sql; do docker compose exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" < "$f"; done  # existing databases only
 ```
 
 ## Key files
 
 ```
-api_avicola/api.py              API: models, validation, auth (JWT/session), RBAC, MFA, alerts, audit
+api_avicola/api.py              API: models, validation, auth (JWT/session), RBAC, MFA, alerts, audit, CLI (create-admin, create-user)
 api_avicola/mqtt_subscriber.py  MQTT → validation → queue → POST /lecturas; heartbeat/LWT; security events
 api_avicola/mfa_security.py     TOTP + Fernet-encrypted secrets
 dashboard_avicola/dashboard.py  Dashboard routes and authenticated proxy to the API
@@ -76,6 +78,9 @@ Topic `sensor/<modulo>/data`, JSON keys:
 
 Optional values may be missing or `null`. The API also checks a 24 h freshness
 window, a 5 min future skew, finite numbers and a unique `id_lectura`.
+Timestamps are stored as naive UTC and returned with `Z` (`utc_iso()`); the
+dashboard sends custom ranges in UTC. Never return a naive `isoformat()` to
+the browser: it reads it as local time (6 h off in Querétaro).
 
 Gas values must arrive in ppm. The firmware in `Modulos_IoT/` follows this
 contract (MQTTS, NTP time, `id_lectura`, LWT, heartbeat) and sends `null` for

@@ -1,68 +1,162 @@
 # Poultry IoT System V2
 
-Environmental monitoring for broiler houses, hardened against the NIST CSF 2.0
-outcomes that apply to a small farm deployment.
+**Secure environmental monitoring for broiler houses.** ESP32 sensor nodes
+measure temperature, humidity, CO₂, CO, ammonia, oxygen and air velocity; a
+hardened stack validates, stores and displays the readings, raises alerts and
+keeps an audit trail. The security controls follow the NIST Cybersecurity
+Framework 2.0 and are measured with an included penetration-testing harness.
 
-ESP32 sensor nodes publish JSON over MQTT with TLS. A subscriber validates each
-message and forwards it to a Flask API, which stores readings in PostgreSQL. A
-Flask dashboard shows live values, history and alerts. Nginx is the only public
-entry point; every other port binds to `127.0.0.1`.
+[![Security scan](https://github.com/LUISFERNANDOG2/poultry-iot-system-v2/actions/workflows/security-scan.yml/badge.svg?branch=main)](https://github.com/LUISFERNANDOG2/poultry-iot-system-v2/actions/workflows/security-scan.yml)
+[![Container hardening](https://github.com/LUISFERNANDOG2/poultry-iot-system-v2/actions/workflows/container-hardening.yml/badge.svg?branch=main)](https://github.com/LUISFERNANDOG2/poultry-iot-system-v2/actions/workflows/container-hardening.yml)
+[![Dependency audit](https://github.com/LUISFERNANDOG2/poultry-iot-system-v2/actions/workflows/dependency-audit.yml/badge.svg?branch=main)](https://github.com/LUISFERNANDOG2/poultry-iot-system-v2/actions/workflows/dependency-audit.yml)
+[![Nginx headers](https://github.com/LUISFERNANDOG2/poultry-iot-system-v2/actions/workflows/nginx-security-headers.yml/badge.svg?branch=main)](https://github.com/LUISFERNANDOG2/poultry-iot-system-v2/actions/workflows/nginx-security-headers.yml)
+![Python 3.11](https://img.shields.io/badge/python-3.11-3776AB?logo=python&logoColor=white)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
+![Live dashboard](docs/images/dashboard.png)
+
+<sub>Screenshots show the system running end to end with two simulated nodes
+(`scripts/simulate_raspberry_node.py`), not field data.</sub>
+
+## Contents
+
+- [Features](#features)
+- [Architecture](#architecture)
+- [Screenshots](#screenshots)
+- [Security controls](#security-controls)
+- [Security evaluation](#security-evaluation)
+- [Quick start](#quick-start)
+- [Sensor nodes](#sensor-nodes)
+- [Telemetry contract](#telemetry-contract)
+- [Development and tests](#development-and-tests)
+- [Repository layout](#repository-layout)
+- [Documentation](#documentation)
+- [Citation](#citation)
+- [License and authors](#license-and-authors)
+
+## Features
+
+- **Live monitoring** of seven variables per module, with ▲/▼ trend
+  indicators, per-variable charts and an optional air-velocity panel for nodes
+  that have an anemometer.
+- **History** by module and time range (from the last minute to 90 days, or a custom range),
+  with sortable tables, threshold colouring and CSV export.
+- **Alerts** when a variable crosses its high or critical threshold, with
+  acknowledge/resolve workflow and optional Telegram notification.
+- **Farm structure**: farms, houses with flock start date and week of age, and
+  IoT modules assigned to each house; node online/offline status and heartbeat.
+- **Security events** page with the audit trail of logins, MFA, privileged
+  actions and rejected MQTT messages.
+- **Bilingual interface** (Spanish and English).
+- **Runs offline inside the farm**: no CDN, every front-end library is served
+  by the server itself.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph Farm network
+        N1[ESP32 node<br/>module 1]
+        N2[ESP32 node<br/>module N]
+    end
+    subgraph Server
+        MQ[(Mosquitto 2<br/>MQTTS 8883<br/>user + ACL)]
+        SUB[MQTT subscriber<br/>validation + retry queue]
+        API[Flask API<br/>Gunicorn :5000]
+        DB[(PostgreSQL 15)]
+        DASH[Flask dashboard<br/>Gunicorn :5001]
+        NGX[Nginx<br/>TLS + security headers]
+    end
+    U[Browser]
+
+    N1 -- "TLS, sensor/moduloN/data" --> MQ
+    N2 -- TLS --> MQ
+    MQ --> SUB
+    SUB -- "POST /lecturas + ingest key" --> API
+    API --> DB
+    U -- HTTPS --> NGX
+    NGX -- "/ and /api/*" --> DASH
+    DASH -- "session checked, internal proxy key" --> API
 ```
-ESP32 node --MQTTS 8883--> Mosquitto --> subscriber --POST /lecturas--> API --> PostgreSQL
-                                                                         ^
-                       browser --HTTPS--> Nginx --> dashboard (proxy) ---+
-```
 
-| Component | Path | Notes |
+Every service port binds to `127.0.0.1` or the Docker network; Nginx is the
+only public entry point. In the [farm profile](#farm-profile) the broker's
+TLS port is also published on the local network for the nodes.
+
+| Component | Path | Role |
 |---|---|---|
-| API | `api_avicola/api.py` | JWT and session auth, RBAC (`admin`, `operador`, `visor`), TOTP MFA for admins, persistent lockout, audit log, alerts |
-| MQTT subscriber | `api_avicola/mqtt_subscriber.py` | Validates topic and payload, queue with retry, node status and heartbeat |
-| Dashboard | `dashboard_avicola/` | Server-rendered Flask; front-end libraries are vendored (no CDN) |
-| Broker | `mosquitto/config/` | Username and password, per-user ACL, MQTTS on 8883 |
-| Reverse proxy | `deploy/nginx/` | TLS, security headers, strips internal proxy headers |
-| Node firmware | `Modulos_IoT/firmware_modulo_iot_json/` | ESP32: MQTTS, NTP time, contract keys |
-| Node simulator | `scripts/simulate_raspberry_node.py` | Publishes contract-valid telemetry over MQTTS |
-| Pentest harness | `Pentesting/` | Scenarios T01-T16, baseline (E0) versus hardened (E1) |
-| Tests | `local_tests/` | `python -m pytest -q local_tests` (real SQLite schema, no database mocks) |
+| API | `api_avicola/api.py` | Validation, storage, JWT/session auth, RBAC, MFA, lockout, alerts, audit |
+| MQTT subscriber | `api_avicola/mqtt_subscriber.py` | Topic and payload validation, retry queue, node status and heartbeat |
+| Dashboard | `dashboard_avicola/` | Server-rendered Flask UI and authenticated proxy to the API |
+| Broker | `mosquitto/config/` | Password file, per-user ACL, MQTTS |
+| Reverse proxy | `deploy/nginx/` | TLS, HSTS, CSP, strips internal proxy headers |
+| Node firmware | `Modulos_IoT/` | ESP32 firmware and access-point scripts for the farm network |
 
-## Telemetry contract
+## Screenshots
 
-Topic `sensor/modulo<N>/data` (stored as module `M<N>`), JSON payload:
+| Historical data | Alerts |
+|---|---|
+| ![Historical data](docs/images/historical.png) | ![Alerts](docs/images/alerts.png) |
+| **Houses and modules** | **Security events** |
+| ![Houses and modules](docs/images/devices.png) | ![Security events](docs/images/security_events.png) |
 
-| Key | Unit | Range | Required |
-|---|---|---|---|
-| `id_lectura` | text, unique | up to 100 chars | yes |
-| `hora` | ISO 8601 UTC | not older than 24 h, not more than 5 min ahead | yes |
-| `temp` | °C | -40 to 125 | yes |
-| `hum` | % | 0 to 100 | yes |
-| `co2` | ppm | 400 to 5000 | yes |
-| `co` | ppm | 0 to 500 | no |
-| `nh3` | ppm | 0 to 100 | no |
-| `o2` | % vol. | 0 to 25 | no |
-| `vel` (or `wind`) | m/s | 0 to 30 | no |
+<p align="center"><img src="docs/images/mfa.png" alt="Second factor (TOTP) at sign-in" width="420"><br/><sub>Administrators sign in with a TOTP second factor.</sub></p>
 
-Optional keys may be missing or `null`. A value outside its range rejects the
-whole reading. Nodes also publish `online`/`offline` (retained, with LWT) to
-`sensor/modulo<N>/status` and `{"timestamp", "uptime_seconds"}` to
-`sensor/modulo<N>/heartbeat`.
+## Security controls
 
-## Quick start (Docker Compose)
+Controls grouped by NIST CSF 2.0 function. The full endpoint inventory, risk
+register and residual risks are in
+[docs/endpoint-inventory-risk-matrix.md](docs/endpoint-inventory-risk-matrix.md).
 
-Requirements: Docker Engine with Compose v2.24 or later, OpenSSL.
+| Function | Controls |
+|---|---|
+| **Identify** | Inventory of HTTP routes, ports and MQTT topics with a risk register (R-01 to R-18) |
+| **Protect** | JWT and server-side sessions; RBAC (`admin`, `operador`, `visor`) checked in the dashboard and again in the API; TOTP MFA for administrators with encrypted secrets; persistent account lockout and per-endpoint rate limits; MQTT authentication, per-user ACL and TLS; HTTPS with HSTS, CSP and one set of security headers; schema, range, freshness and replay validation of every reading; no default accounts and refusal to start with placeholder or leaked secrets; non-root, read-only containers; hash-pinned dependencies |
+| **Detect** | Security-event log for authentication, MFA, privileged actions and rejected MQTT messages; node heartbeat and last-will status; CI with Bandit, Gitleaks, pip-audit and container and Nginx checks |
+| **Respond** | Threshold alerts with acknowledge/resolve workflow and optional Telegram notification; lockout and rate-limit responses recorded as events |
+| **Recover** | Daily compressed backups, encrypted off-site copy (3-2-1), scripted restore test and documented RTO/RPO targets |
 
-1. Create the environment file and replace every placeholder. The API refuses
-   to start with placeholder or known-leaked secrets.
+## Security evaluation
+
+`Pentesting/` contains a harness of 16 attack scenarios (T01-T16) that runs the
+same attacks against the baseline (E0, the system before hardening, commit
+`15ea85f`) and the hardened version (E1). Each scenario is repeated 30 times.
+
+Local run of 28 October 2026 (E1 behind Nginx with TLS):
+
+| Indicator | E0 baseline | E1 hardened |
+|---|---|---|
+| Attacker success, mean over the 11 scenarios evaluated in both | 100.0 % | 1.2 % |
+| Scenarios where the attacker succeeded at least once | 11 of 11 | 1 of 11 |
+
+The only non-zero E1 result is invalid-credential guessing (T02, 13.3 %): the
+first four wrong passwords get a normal 401 before the account locks on the
+fifth, as designed. MFA bypass, lockout bypass and anomaly-event detection (T10,
+T11, T15) do not exist in E0, so they are reported for E1 only (0 %). Raw JSON,
+tables and chart are in
+[Pentesting/evidence/2026-10-28-local/](Pentesting/evidence/2026-10-28-local/).
+
+![Attacker success by scenario, E0 vs E1](Pentesting/evidence/2026-10-28-local/reports/grafico_comparativo.png)
+
+To reproduce against **your own** test deployment, see
+[Pentesting/README.md](Pentesting/README.md).
+
+## Quick start
+
+Requirements: Docker Engine with Compose v2.24 or later, and OpenSSL.
+
+1. **Secrets.** Copy the template and replace every value. The API will not
+   start with the example values or with a secret known to have leaked.
 
    ```bash
    cp .env.example .env
-   python3 -c 'import secrets; print(secrets.token_hex(32))'   # SECRET_KEY, JWT_SECRET_KEY, INGEST_API_KEY
+   python3 -c 'import secrets; print(secrets.token_hex(32))'    # SECRET_KEY, JWT_SECRET_KEY, INGEST_API_KEY
    python3 -c 'import secrets; print(secrets.token_urlsafe(48))' # SECURITY_EVENTS_API_KEY, DASHBOARD_PROXY_KEY
    python3 -c 'import base64,secrets; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())'  # MFA_ENCRYPTION_KEY
    ```
 
-2. Create the broker certificates and the MQTT users. Add the names or
-   addresses the nodes will use to reach the broker.
+2. **Broker certificates and MQTT users.** List the names or addresses the
+   nodes will use to reach the broker so the certificate matches them.
 
    ```bash
    MQTT_TLS_IPS=10.42.0.1 scripts/generate_mqtt_tls_certs.sh
@@ -72,16 +166,20 @@ Requirements: Docker Engine with Compose v2.24 or later, OpenSSL.
      mosquitto_passwd -b /mosquitto/config/passwd mqtt_subscriber_user '<MQTT_SUBSCRIBER_PASSWORD>'
    ```
 
-3. Start the stack and create the first administrator. There are no default
-   accounts. The administrator enrols TOTP at first login and creates the
-   other users from the dashboard.
+3. **Start the stack and create the accounts.** There are no default accounts
+   and no public sign-up. Create the first administrator on the server; it
+   enrols TOTP at its first sign-in. Add other users the same way.
 
    ```bash
    docker compose up -d --build
-   docker compose exec api flask --app api_avicola.api:app create-admin --username <name>
+   docker compose exec api flask --app api_avicola.api:app create-admin --username <admin>
+   docker compose exec api flask --app api_avicola.api:app create-user --username <name> --role operador
    ```
 
-4. Existing databases only: apply the SQL migrations in order.
+   Roles: `admin` (everything, MFA required), `operador` (thresholds, alerts,
+   module assignment, security events) and `visor` (read only).
+
+4. **Upgrading an existing database** only: apply the SQL migrations in order.
 
    ```bash
    for f in scripts/migrations/*.sql; do
@@ -89,28 +187,33 @@ Requirements: Docker Engine with Compose v2.24 or later, OpenSSL.
    done
    ```
 
-5. Publish through Nginx with `deploy/nginx/poultry-api.conf` (see
-   [Nginx security headers](docs/nginx-security-headers.md)). The browser
-   reaches the dashboard at `/`; the dashboard proxies its `/api/` calls to the
-   API. `/backend/` exposes the API itself for clients and for the pentest
-   harness.
+5. **Publish with Nginx** using `deploy/nginx/poultry-api.conf`
+   ([guide](docs/nginx-security-headers.md)). Browsers use `/`; `/backend/` is
+   the API for JWT clients such as scripts and the pentest harness.
 
 ### Farm profile
 
 When the server runs inside the farm and the nodes publish over the local
-network, add the farm override. It publishes only MQTTS (8883) on the LAN; the
-API and dashboard stay behind Nginx.
+network, add the farm override. It publishes only MQTTS (8883) on the LAN.
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.farm.yml up -d
 ```
 
-`Modulos_IoT/localap/` configures a dedicated Wi-Fi access point for the nodes.
-Restrict 8883 to that network with the host firewall.
+`Modulos_IoT/localap/` sets up a dedicated Wi-Fi access point for the nodes.
+Restrict port 8883 to that network with the host firewall.
 
-## Nodes
+## Sensor nodes
 
-**Simulator.** Useful for end-to-end tests without hardware:
+**ESP32 firmware** (`Modulos_IoT/firmware_modulo_iot_json/`). Copy
+`config.example.h` to `config.h` (ignored by git), fill in the Wi-Fi network,
+broker address, MQTT credentials and the broker CA certificate, and build with
+the Arduino ESP32 core and the libraries listed in the sketch header. The node
+gets the time over NTP, publishes over TLS and sends `null` for any gas
+channel whose calibration constant is still 0, so raw ADC counts never reach
+the database as ppm.
+
+**Simulator** for end-to-end tests without hardware:
 
 ```bash
 MQTT_BROKER=localhost MQTT_USERNAME=mqtt_sensor_user MQTT_PASSWORD='<...>' \
@@ -118,188 +221,77 @@ MQTT_TLS_CA_CERT=mosquitto/certs/broker/ca.crt SIMULATOR_MODULE=modulo1 \
 python scripts/simulate_raspberry_node.py
 ```
 
-**ESP32 firmware.** Copy `config.example.h` to `config.h` (ignored by git),
-fill in Wi-Fi, broker address, MQTT credentials and the CA certificate, and
-build with the Arduino ESP32 core and the libraries listed in the sketch
-header. Gas channels without a calibration value are sent as `null`, so raw
-ADC counts never reach the database as ppm. The CCS811 reports equivalent CO2
-estimated from VOCs, not an NDIR measurement.
+## Telemetry contract
 
-## Security evaluation
+Topic `sensor/modulo<N>/data` (stored as module `M<N>`), JSON payload:
 
-`Pentesting/` contains the harness used for the E0/E1 comparison. See
-[Pentesting/README.md](Pentesting/README.md) for the scenarios, the dedicated
-test accounts and the pacing needed for the login rate limit:
+| Key | Unit | Range | Required |
+|---|---|---|---|
+| `id_lectura` | text, unique | up to 100 characters | yes |
+| `hora` | ISO 8601, UTC | at most 24 h old and 5 min ahead | yes |
+| `temp` | °C | -40 to 125 | yes |
+| `hum` | % | 0 to 100 | yes |
+| `co2` | ppm | 400 to 5000 | yes |
+| `co` | ppm | 0 to 500 | no |
+| `nh3` | ppm | 0 to 100 | no |
+| `o2` | % vol. | 0 to 25 | no |
+| `vel` (or `wind`) | m/s | 0 to 30 | no |
 
-```bash
-cd Pentesting && cp .env.example .env   # point it at your own test deployment only
-PENTEST_LOGIN_PAUSE=6.5 python runner.py --env E1 --reps 30 --cooldown 61
-python report.py
-```
+Optional keys may be missing or `null`; a value outside its range rejects the
+whole reading. Nodes also publish `online`/`offline` (retained, with last will)
+to `sensor/modulo<N>/status` and `{"timestamp", "uptime_seconds"}` to
+`sensor/modulo<N>/heartbeat`. All timestamps are stored and returned in UTC
+(`...Z`); the browser shows local time.
 
-## Citation and license
-
-See [CITATION.cff](CITATION.cff) and [LICENSE](LICENSE).
-
-## Repository Hygiene
-
-Do not commit:
-
-- `.env` or any real environment file
-- certificates or private keys
-- tunnel credentials
-- MQTT credential files
-- database dumps, backups, logs, or debug captures
-
-Production credentials, private TLS material and host-generated state remain
-outside this repository. Reproducible deployment templates may be versioned as
-long as they contain no secrets.
-
-## Container hardening
-
-The API, dashboard and MQTT subscriber images run as an explicit non-root user
-with a read-only root filesystem, dropped Linux capabilities, bounded process
-counts and service-specific healthchecks. See the
-[container hardening procedure](docs/container-hardening.md) for the control
-matrix, justified vendor-image exceptions, manual validation and rollback.
-
-## Nginx security headers
-
-The production Nginx virtual host is versioned without certificates or private
-keys. Nginx emits one canonical set of security headers, enables HSTS only on
-HTTPS, hides its version and preserves the existing Certbot and reverse-proxy
-layout. See the
-[Nginx security header procedure](docs/nginx-security-headers.md) for local
-tests, browser checks, deployment and HSTS-aware rollback.
-
-## Deployment and security evidence
-
-The final phase 6 operator runbook is available in the
-[deployment and security evidence guide](docs/deployment-security-evidence-guide.md).
-It consolidates the dependency, container and Nginx validations, defines safe
-screenshot handling, documents the documentation-only deployment path and
-provides rollback and troubleshooting procedures.
-
-## Endpoint inventory and risk matrix
-
-The final hardening inventory maps the public and internal HTTP routes, Docker
-and host ports, MQTT topics, authentication models, RBAC decisions and
-residual risks. See the
-[endpoint inventory and risk matrix](docs/endpoint-inventory-risk-matrix.md)
-for the source-of-truth precedence, validation commands and residual-risk
-decisions. The unnumbered remediation is recorded in the
-[final hardening closure](docs/hardening-final-closure.md).
-
-## PostgreSQL backup
-
-Create a compressed logical backup from the running Docker Compose database:
+## Development and tests
 
 ```bash
-./scripts/backup_postgres.sh
+python -m pip install -r requirements.txt pytest
+python -m pytest -q local_tests
 ```
 
-Backups are written to `backups/postgres/` by default with directory mode
-`700` and file mode `600`. The script validates the database connection and
-the generated gzip archive before publishing the final `.sql.gz` file. Backup
-files are intentionally ignored by Git.
+The tests run against the real schema on SQLite (`create_all`) without
+database mocks. CI runs them inside the hardened API image, together with
+Bandit, Gitleaks, pip-audit and the container and Nginx checks.
 
-On WSL paths mounted from Windows, such as `/mnt/c` or `/mnt/e`, NTFS may show
-permissions such as `777` even after `chmod`. The script reports this condition.
-Production backups must use a Linux filesystem that enforces the expected
-`700` directory and `600` file permissions.
+## Repository layout
 
-For a protected destination on the server, pass the directory as an argument
-or set `BACKUP_DIR`:
-
-```bash
-./scripts/backup_postgres.sh /srv/poultry-backups
-BACKUP_DIR=/srv/poultry-backups ./scripts/backup_postgres.sh
+```
+api_avicola/            API, MQTT subscriber, MFA helpers
+dashboard_avicola/      Dashboard (templates, static assets, vendored libraries)
+deploy/                 Nginx virtual host, systemd backup units
+docs/                   Security inventory, hardening and operations guides
+local_tests/            Unit and policy tests
+Modulos_IoT/            ESP32 firmware and farm access-point scripts
+mosquitto/config/       Broker configuration and ACL
+Pentesting/             Attack harness T01-T16 and dated evidence
+scripts/                Certificates, migrations, backups, node simulator
 ```
 
-This commit only creates a local backup. Off-site copies, retention policy and
-restore testing are handled separately in the continuity workflow.
+## Documentation
 
-## Daily 3-2-1 backup workflow
+| Topic | Document |
+|---|---|
+| Endpoints, ports, MQTT topics and risk register | [endpoint-inventory-risk-matrix.md](docs/endpoint-inventory-risk-matrix.md) |
+| Closure of residual risks | [hardening-final-closure.md](docs/hardening-final-closure.md) |
+| Container hardening | [container-hardening.md](docs/container-hardening.md) |
+| Nginx security headers and HSTS | [nginx-security-headers.md](docs/nginx-security-headers.md) |
+| Dependency audit and pinning | [dependency-audit.md](docs/dependency-audit.md), [dependency-pinning.md](docs/dependency-pinning.md) |
+| Deployment runbook and evidence | [deployment-security-evidence-guide.md](docs/deployment-security-evidence-guide.md) |
+| Backups, off-site copy and restore | [backup-operations.md](docs/backup-operations.md), [restore-test-procedure.md](docs/restore-test-procedure.md), [backup-retention-rto-rpo.md](docs/backup-retention-rto-rpo.md) |
 
-The 3-2-1 workflow keeps a compressed backup on the Droplet and uploads an
-immutable, client-side encrypted copy to a Google Drive folder through an
-`rclone crypt` remote. The production database, the local dump and the
-off-site encrypted object provide three copies across Droplet and Google
-storage, with one copy outside the server. A host-side pull can retain an
-additional independent copy on the operator workstation.
+Never commit `.env`, certificates, private keys, MQTT password files,
+database dumps or logs; `.gitignore` covers them.
 
-Install `rclone` and configure a Google Drive remote authenticated with an
-account that can edit the shared backup folder. In the advanced Drive options,
-set `root_folder_id` to the final segment of that folder's browser URL. Then
-create an `rclone crypt` remote that wraps the Drive remote so database content
-and filenames are encrypted before upload. Keep the OAuth token, crypt password
-and crypt salt outside this repository.
+## Citation
 
-```bash
-rclone config
-rclone lsd poultry-drive:
-rclone lsd poultry-offsite-crypt:
-```
+If you use this software, please cite it using the metadata in
+[CITATION.cff](CITATION.cff) (GitHub's "Cite this repository" button).
 
-Prepare the configuration and systemd units on the server:
+## License and authors
 
-```bash
-sudo install -d -m 700 /etc/poultry-iot
-sudo install -m 600 deploy/backup/backup.env.example /etc/poultry-iot/backup.env
-sudo install -m 644 deploy/systemd/poultry-backup@.service /etc/systemd/system/
-sudo install -m 644 deploy/systemd/poultry-backup@.timer /etc/systemd/system/
-sudoedit /etc/poultry-iot/backup.env
-sudo systemctl daemon-reload
-sudo systemctl enable --now "poultry-backup@$(id -un).timer"
-```
+MIT License, see [LICENSE](LICENSE).
 
-Run one manual service execution before relying on the timer:
-
-```bash
-sudo systemctl start "poultry-backup@$(id -un).service"
-sudo systemctl status "poultry-backup@$(id -un).service" --no-pager
-sudo journalctl -u "poultry-backup@$(id -un).service" -n 50 --no-pager
-systemctl list-timers "poultry-backup@$(id -un).timer"
-```
-
-The timer runs daily at 02:15 with a randomized delay of up to 15 minutes and
-uses `Persistent=true` to run a missed backup after the server becomes
-available again. Retention remains a documented, manually controlled operation
-until a separate automation change is implemented.
-
-From the local WSL environment, use the existing crypt remote to pull decrypted
-backup files onto the Windows host disk without exposing an inbound service on
-the workstation:
-
-```bash
-./scripts/sync_backups_to_host.sh /mnt/e/PoultryBackups
-```
-
-Protect the host destination with NTFS access controls and full-disk encryption
-such as BitLocker. The script only copies missing or changed files and does not
-delete older backups from the host.
-
-## PostgreSQL restore test
-
-Validate a local or off-site backup in an isolated temporary PostgreSQL 15
-container without modifying the production database:
-
-```bash
-./scripts/test_postgres_restore.sh \
-  /srv/poultry-backups/poultry_postgres_YYYYMMDDTHHMMSSZ.sql.gz
-```
-
-The test stops on SQL errors, validates the critical application tables and
-hardening fields, reports only table row counts and removes the temporary
-container when finished. See the
-[PostgreSQL restore test procedure](docs/restore-test-procedure.md) for local
-and Google Drive recovery steps, evidence rules and expected results.
-
-## Backup continuity policy
-
-Retention responsibilities, recovery order and measurable RTO/RPO targets are
-defined in the
-[backup continuity policy](docs/backup-retention-rto-rpo.md). The current
-targets are a 24-hour-and-15-minute RPO during normal operation and a four-hour
-RTO after an incident is declared. Backup deletion is not automated by this
-repository.
+Developed by **Luis Fernando González González** and **Isaac Castro Islas**, as
+part of the AviSmartFarm master's thesis project at the Instituto Tecnológico
+de San Juan del Río (Tecnológico Nacional de México).
