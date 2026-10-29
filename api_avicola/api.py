@@ -3452,7 +3452,8 @@ def bootstrap_first_admin(username, password, full_name=""):
     """Crear el primer administrador de una instalación nueva.
 
     Solo funciona mientras no exista ningún administrador: después, las
-    cuentas se crean desde /api/register por un admin con MFA. El admin
+    cuentas se crean con `flask create-user` o desde /api/register por un
+    admin con MFA. El admin
     creado aquí debe enrolar TOTP en su primer inicio de sesión.
     """
     username = (username or "").strip()
@@ -3464,7 +3465,7 @@ def bootstrap_first_admin(username, password, full_name=""):
             "y ser distinta del usuario."
         )
     if User.query.filter_by(role="admin").first():
-        raise ValueError("Ya existe un administrador; usa /api/register.")
+        raise ValueError("Ya existe un administrador; usa create-user.")
     if User.query.filter_by(username=username).first():
         raise ValueError("El usuario ya existe.")
 
@@ -3507,6 +3508,75 @@ def create_admin_command(username, full_name, password):
         f"Administrador '{user.username}' creado. Debe enrolar MFA (TOTP) "
         "en su primer inicio de sesión."
     )
+
+
+CLI_ASSIGNABLE_ROLES = ("admin", "operador", "visor")
+
+
+def create_user_from_cli(username, password, role, full_name=""):
+    """Dar de alta un usuario desde el servidor.
+
+    El tablero no tiene pantalla de altas y el registro web está cerrado, así
+    que las cuentas se crean aquí (o con POST /api/register y un admin con MFA).
+    Quien ejecuta el comando ya tiene acceso al servidor; la alta queda en los
+    eventos de seguridad.
+    """
+    username = (username or "").strip()
+    role = (role or "").strip().casefold()
+    if role not in CLI_ASSIGNABLE_ROLES:
+        raise ValueError(f"Rol inválido. Usa uno de: {', '.join(CLI_ASSIGNABLE_ROLES)}.")
+    if not username or not isinstance(password, str):
+        raise ValueError("Se requieren usuario y contraseña.")
+    if len(username) > 80:
+        raise ValueError("El usuario no debe exceder 80 caracteres.")
+    if len(password) < MIN_PASSWORD_LENGTH or password.casefold() == username.casefold():
+        raise ValueError(
+            f"La contraseña debe tener al menos {MIN_PASSWORD_LENGTH} caracteres "
+            "y ser distinta del usuario."
+        )
+    if User.query.filter(db.func.lower(User.username) == username.casefold()).first():
+        raise ValueError("El usuario ya existe.")
+
+    user = User(
+        username=username,
+        full_name=full_name or username,
+        role=role,
+        initials=(full_name or username)[:2].upper(),
+    )
+    user.set_password(password)
+    db.session.add(user)
+    db.session.commit()
+
+    record_security_event(
+        event_type="user_created",
+        severity="warning" if role == "admin" else "info",
+        source="api_cli",
+        actor_username=username,
+        reason=f"role={role}",
+    )
+    return user
+
+
+@app.cli.command("create-user")
+@click.option("--username", required=True, help="Nombre de usuario.")
+@click.option(
+    "--role",
+    required=True,
+    type=click.Choice(CLI_ASSIGNABLE_ROLES, case_sensitive=False),
+    help="admin, operador o visor.",
+)
+@click.option("--full-name", default="", help="Nombre visible.")
+@click.password_option(help="Contraseña (mínimo 12 caracteres).")
+def create_user_command(username, role, full_name, password):
+    """Crear un usuario adicional (operador, visor u otro admin)."""
+    try:
+        user = create_user_from_cli(username, password, role, full_name)
+    except ValueError as exc:
+        raise click.ClickException(str(exc))
+    message = f"Usuario '{user.username}' creado con rol {user.role}."
+    if user.role == "admin":
+        message += " Debe enrolar MFA (TOTP) en su primer inicio de sesión."
+    click.echo(message)
 
 
 def start(port=5000, host='127.0.0.1'):

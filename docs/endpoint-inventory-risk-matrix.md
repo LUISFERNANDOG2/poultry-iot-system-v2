@@ -170,7 +170,7 @@ sólo el `bind` del contenedor.
 | `/health` | GET | Público, respuesta mínima | Pública por `location /`; destinada a healthcheck |
 | `/` | GET | Redirección de entrada | Pública |
 | `/login` | GET, POST | Límite `10/min`, API de login, MFA y sesión | Pública |
-| `/register` | GET, POST | Límite `5/hour`; sólo crea cuando no existe ningún usuario | Pública; riesgo de carrera sólo durante bootstrap, R-01 |
+| `/register` | GET, POST | Deshabilitado: redirige a `/login` sin crear usuarios; el primer admin se crea con `flask create-admin` | Pública, sin efecto; R-01 |
 | `/logout` | POST | `login_required`, limpia sesión | Pública sólo con sesión válida |
 | `/dashboard` | GET | `login_required` | Pública sólo con sesión válida |
 | `/historical` | GET | `login_required` | Pública sólo con sesión válida |
@@ -235,7 +235,7 @@ configuración. Los estados son `Mitigado`, `Parcial`, `Aceptado con monitoreo`,
 
 | ID | Riesgo / activo | Inicial | Controles comprobables | Residual | Estado y siguiente acción |
 | --- | --- | :---: | --- | :---: | --- |
-| R-01 | Creación no autorizada de usuarios privilegiados mediante `POST /api/register` | Crítica | JWT `admin`, MFA verificado, límite `5/hour`, validación, hash fuerte y evento privilegiado | **Baja** | **Mitigado:** conservar pruebas 401/403/201 y revisar cada alta en eventos de seguridad |
+| R-01 | Creación no autorizada de usuarios privilegiados mediante `POST /api/register` o el registro web inicial | Crítica | JWT `admin`, MFA verificado, límite `5/hour`, validación, hash fuerte y evento privilegiado; registro web deshabilitado y primer admin por CLI en el servidor | **Baja** | **Mitigado:** conservar pruebas 401/403/201 y revisar cada alta en eventos de seguridad |
 | R-02 | Exposición pública de telemetría, alertas y estructura de granjas/naves/módulos | Alta | Lecturas con JWT o sesión del dashboard (commit `9e5de36`), TLS, límites por endpoint y de resultados | Baja | **Mitigado:** el arnés T01 confirma 401 sin token; revisar al agregar endpoints de lectura |
 | R-03 | Divulgación de errores internos mediante detalles de excepciones | Media | Respuestas 500 genéricas en API y dashboard; detalles conservados sólo en logs estructurados del host | **Baja** | **Mitigado:** prueba de regresión impide reintroducir `str(e)` o el secreto de desarrollo |
 | R-04 | Inyección o manipulación de telemetría | Alta | `X-Ingest-Key`, comparación constante, JSON/tipos/rangos, duplicados y auditoría | Baja | **Mitigado:** rotar la llave y vigilar rechazos |

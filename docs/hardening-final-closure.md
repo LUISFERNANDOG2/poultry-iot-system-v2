@@ -13,9 +13,12 @@ final y deja una evidencia reproducible de aceptación.
 
 `POST /api/register` requiere ahora un JWT de un usuario `admin`. Como el rol
 administrativo exige MFA, el token debe acreditar una verificación TOTP
-vigente. Cada alta genera además un evento de acción privilegiada. El
-bootstrap de una base vacía permanece exclusivamente en `/register` del
-dashboard y se bloquea cuando ya existe cualquier usuario.
+vigente. Cada alta genera además un evento de acción privilegiada.
+
+En la versión 1.0.0 el bootstrap ya no pasa por la web: `/register` del
+dashboard dejaba que el primer visitante de una base vacía eligiera su rol,
+incluido `admin`. Ahora redirige a `/login` sin crear nada, y el primer
+administrador se crea en el servidor con `flask create-admin`.
 
 Resultados esperados:
 

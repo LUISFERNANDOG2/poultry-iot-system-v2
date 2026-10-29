@@ -714,69 +714,16 @@ def login():
 @app.route('/register', methods=['GET', 'POST'])
 @limiter.limit("5 per hour")
 def register():
-    if request.method == 'POST':
-        try:
-            # Verificar si ya hay usuarios
-            user_count = User.query.count()
-            if user_count > 0:
-                flash('Ya existen usuarios registrados. Use el formulario de login.')
-                return redirect('/login')
-            
-            # Validar contraseñas coinciden
-            password = request.form['password']
-            confirm_password = request.form['confirm_password']
-            
-            if password != confirm_password:
-                flash('Las contraseñas no coinciden')
-                return render_template('login.html', show_register=True)
-            
-            if len(password) < 12:
-                flash('La contraseña debe tener al menos 12 caracteres')
-                return render_template('login.html', show_register=True)
-            
-            # Crear usuario
-            username = request.form['username']
-            full_name = request.form['full_name']
-            role = normalize_role(request.form.get('role'))
-            
-            # Generar iniciales
-            initials = ''.join([n[0].upper() for n in full_name.split()])[:2]
-            
-            new_user = User(
-                username=username,
-                full_name=full_name,
-                role=role,
-                initials=initials
-            )
-            new_user.set_password(password)
-            
-            db.session.add(new_user)
-            db.session.commit()
-            
-            flash('Usuario registrado exitosamente. Ahora puede iniciar sesión.')
-            return redirect('/login')
-            
-        except Exception:
-            db.session.rollback()
-            app.logger.exception(
-                "event=dashboard_registration_failed endpoint=%s source_ip=%s",
-                request.endpoint,
-                request.remote_addr,
-            )
-            flash('Error interno al registrar usuario. Intente nuevamente.')
-            return render_template('login.html', show_register=True)
-    
-    # Verificar si ya hay usuarios
-    try:
-        user_count = User.query.count()
-        if user_count > 0:
-            flash('Ya existen usuarios registrados. Use el formulario de login.')
-            return redirect('/login')
-    except:
-        flash('Base de datos no disponible. Espere a que el sistema inicie completamente.')
-        return redirect('/login')
-    
-    return render_template('login.html', show_register=True)
+    """El registro web está deshabilitado.
+
+    Antes permitía que el primer visitante de una instalación vacía se creara
+    una cuenta eligiendo su rol, incluido admin. El primer administrador se crea
+    desde el servidor con `flask create-admin`, y los demás usuarios los da de
+    alta ese administrador.
+    """
+    flash('El registro público está deshabilitado. Pide una cuenta al administrador.')
+    return redirect('/login')
+
 
 @app.route('/logout', methods=['POST'])
 @login_required

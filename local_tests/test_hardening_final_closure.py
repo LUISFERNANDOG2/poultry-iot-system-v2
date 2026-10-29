@@ -189,5 +189,34 @@ class FinalClosureStaticTests(unittest.TestCase):
         )
 
 
+class WebRegistrationDisabledTests(unittest.TestCase):
+    """El registro web permitía que el primer visitante se creara un admin."""
+
+    def setUp(self):
+        dashboard.limiter.reset()
+        self.client = dashboard.app.test_client()
+        with dashboard.app.app_context():
+            dashboard.db.drop_all()
+            dashboard.db.create_all()
+
+    def test_register_creates_nobody_on_an_empty_database(self):
+        intruder_pw = "intruso-" + "clave-larga-123"
+        response = self.client.post("/register", data={
+            "username": "intruso",
+            "full_name": "Intruso",
+            "password": intruder_pw,
+            "confirm_password": intruder_pw,
+            "role": "admin",
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.headers["Location"].endswith("/login"))
+        with dashboard.app.app_context():
+            self.assertEqual(dashboard.User.query.count(), 0)
+
+    def test_login_page_has_no_register_link(self):
+        page = self.client.get("/login").get_data(as_text=True)
+        self.assertNotIn("/register", page)
+
+
 if __name__ == "__main__":
     unittest.main()
