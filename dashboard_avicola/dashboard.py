@@ -282,7 +282,7 @@ def serialize_dashboard_user(user):
         'mfa_enabled': bool(user.mfa_enabled),
         'mfa_enrolled': user.has_complete_mfa_enrollment(),
         'mfa_last_verified_at': (
-            user.mfa_last_verified_at.isoformat()
+            user.mfa_last_verified_at.isoformat(timespec="seconds") + "Z"  # guardada en UTC
             if user.mfa_last_verified_at
             else None
         ),

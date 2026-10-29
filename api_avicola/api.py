@@ -108,6 +108,32 @@ def internal_error_response(message="Error interno del servidor."):
     return jsonify({"error": message}), 500
 
 
+def utc_iso(value):
+    """Fecha guardada en UTC sin zona -> ISO 8601 con 'Z'.
+
+    Sin la 'Z' el navegador interpreta la hora como local y en Querétaro la
+    muestra 6 horas adelantada.
+    """
+    if value is None:
+        return None
+    if isinstance(value, str):  # SQLite devuelve MAX(fecha) como texto
+        value = datetime.fromisoformat(value)
+    if value.tzinfo is not None:
+        value = value.astimezone(timezone.utc).replace(tzinfo=None)
+    return value.isoformat(timespec="milliseconds") + "Z"
+
+
+def parse_client_datetime(value):
+    """ISO 8601 del cliente -> datetime UTC sin zona, como se guarda en la base.
+
+    Una fecha sin zona se toma como UTC; el tablero envía siempre la hora con 'Z'.
+    """
+    parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00").replace(" ", "T"))
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+    return parsed
+
+
 app = Flask(__name__)
 # Variables con umbral configurable. Las alertas se disparan cuando el valor
 # SUBE de medio < alto < grave; O2 y velocidad del aire no se incluyen porque
@@ -820,11 +846,7 @@ def serialize_security_event(security_event):
         "source_ip": security_event.source_ip,
         "actor_username": security_event.actor_username,
         "details": security_event.details or {},
-        "created_at": (
-            security_event.created_at.isoformat()
-            if security_event.created_at
-            else None
-        ),
+        "created_at": utc_iso(security_event.created_at),
     }
 
 
@@ -1633,7 +1655,7 @@ def get_lecturas():
         lista = [{
             'id_lectura': lectura.id_lectura,
             'modulo': lectura.modulo,
-            'timestamp': lectura.hora.isoformat() if hasattr(lectura.hora, 'isoformat') else str(lectura.hora),
+            'timestamp': utc_iso(lectura.hora),
             'temperatura': lectura.temperatura,
             'humedad': lectura.humedad,
             'co': lectura.co,
@@ -1642,7 +1664,7 @@ def get_lecturas():
             'oxigeno': lectura.oxigeno,
             'velocidad_aire': lectura.velocidad_aire,
             'tvoc': 0,  # TVOC no está en la BD, valor por defecto
-            'sync_time': datetime.now().isoformat()
+            'sync_time': utc_iso(datetime.utcnow())
         }]
         return jsonify(lista)
     except Exception as e:
@@ -1670,7 +1692,7 @@ def get_live_data():
         data = {
             'id_lectura': lectura.id_lectura,
             'modulo': lectura.modulo,
-            'timestamp': lectura.hora.isoformat() if hasattr(lectura.hora, 'isoformat') else str(lectura.hora),
+            'timestamp': utc_iso(lectura.hora),
             'temperatura': lectura.temperatura,
             'humedad': lectura.humedad,
             'co': lectura.co,
@@ -1679,7 +1701,7 @@ def get_live_data():
             'oxigeno': lectura.oxigeno,
             'velocidad_aire': lectura.velocidad_aire,
             'tvoc': 0,  # TVOC no está en la BD, valor por defecto
-            'sync_time': datetime.now().isoformat()
+            'sync_time': utc_iso(datetime.utcnow())
         }
         return jsonify(data)
     except Exception as e:
@@ -1705,7 +1727,7 @@ def historical_data():
         house_param = request.args.get('modulo')
         
         # Calcular el tiempo límite según el rango
-        now = datetime.now()
+        now = datetime.utcnow()  # las lecturas se guardan en UTC
         if range_param == '1m':
             limit_time = now - timedelta(minutes=1)
         elif range_param == '10m':
@@ -1729,9 +1751,9 @@ def historical_data():
         elif range_param == '90d':
             limit_time = now - timedelta(days=90)
         elif range_param == 'custom' and from_date and to_date:
-            # Parse datetime-local values (ISO format without timezone)
-            limit_time = datetime.fromisoformat(from_date)
-            to_time = datetime.fromisoformat(to_date)
+            # El tablero envía el rango en UTC con 'Z'
+            limit_time = parse_client_datetime(from_date)
+            to_time = parse_client_datetime(to_date)
             query = Lectura.query.filter(
                 Lectura.hora >= limit_time,
                 Lectura.hora <= to_time
@@ -1793,7 +1815,7 @@ def historical_data():
             })
         
         data = {
-            "timestamps": [l.hora.isoformat() for l in lecturas],
+            "timestamps": [utc_iso(l.hora) for l in lecturas],
             "house": [l.modulo for l in lecturas],
             "temperature": [l.temperatura for l in lecturas],
             "humidity": [l.humedad for l in lecturas],
@@ -2689,12 +2711,12 @@ def get_alerts():
                 'type': alert.tipo,
                 'message': alert.mensaje,
                 'house': alert.modulo,
-                'timestamp': alert.timestamp.isoformat(),
+                'timestamp': utc_iso(alert.timestamp),
                 'status': alert.estado,
                 'value': alert.valor_actual,
                 'threshold': alert.umbral,
                 'sensor': alert.sensor,
-                'resolved_at': alert.timestamp_resuelto.isoformat() if alert.timestamp_resuelto else None,
+                'resolved_at': utc_iso(alert.timestamp_resuelto),
 
                 # Alias en español para el dashboard actual
                 'prioridad': alert.prioridad,
@@ -2704,7 +2726,7 @@ def get_alerts():
                 'estado': alert.estado,
                 'valor_actual': alert.valor_actual,
                 'umbral': alert.umbral,
-                'timestamp_resuelto': alert.timestamp_resuelto.isoformat() if alert.timestamp_resuelto else None,
+                'timestamp_resuelto': utc_iso(alert.timestamp_resuelto),
             }
             result.append(item)
 
@@ -3312,7 +3334,7 @@ def get_modulos():
                 'nave_id': m.nave_id if m else None,
                 'nave': nave,
                 'granja': granja,
-                'ultima_lectura': ultima.isoformat() if ultima else None
+                'ultima_lectura': utc_iso(ultima)
             })
         return jsonify(result)
     except Exception as e:

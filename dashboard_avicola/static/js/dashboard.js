@@ -301,7 +301,9 @@ function getRangeFromUI() {
   if (range === 'custom') {
     const from = document.getElementById('fromDate').value;
     const to   = document.getElementById('toDate').value;
-    return (from && to) ? { min: new Date(from), max: new Date(to) } : null;
+    return (from && to)
+      ? { min: new Date(from.replace(' ', 'T')), max: new Date(to.replace(' ', 'T')) }
+      : null;
   }
 
   const msMap = {
@@ -506,9 +508,17 @@ function getBaseUrl() {
   return window.location.origin;
 }
 
+// "2026-10-28 10:00" del selector (hora local) -> ISO en UTC para la API
+function localPickerToUtcIso(value) {
+  const date = new Date(String(value).trim().replace(' ', 'T'));
+  return isNaN(date) ? value : date.toISOString();
+}
+
 async function fetchHistoricalData(range, from = null, to = null) {
   let url = `/api/historical?range=${encodeURIComponent(range)}`;
-  if (from && to) url += `&from=${from}&to=${to}`;
+  if (from && to) {
+    url += `&from=${encodeURIComponent(localPickerToUtcIso(from))}&to=${encodeURIComponent(localPickerToUtcIso(to))}`;
+  }
 
   // Add module parameter
   const moduleSelect = document.getElementById('moduleSelect');

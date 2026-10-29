@@ -252,7 +252,9 @@
       const from = document.getElementById('fromDate').value;
       const to = document.getElementById('toDate').value;
       if (!from || !to) return; // Wait for both dates
-      url += `&from=${from}&to=${to}`;
+      // El selector da hora local; la API recibe UTC
+      const toUtc = (v) => { const d = new Date(v.replace(' ', 'T')); return isNaN(d) ? v : d.toISOString(); };
+      url += `&from=${encodeURIComponent(toUtc(from))}&to=${encodeURIComponent(toUtc(to))}`;
     }
 
     // Show loading state
@@ -475,8 +477,8 @@
     if (range === 'custom') {
       const from = document.getElementById('fromDate').value;
       const to   = document.getElementById('toDate').value;
-      if (from) xMin = new Date(from);
-      if (to)   xMax = new Date(to);
+      if (from) xMin = new Date(from.replace(' ', 'T'));
+      if (to)   xMax = new Date(to.replace(' ', 'T'));
     } else {
       const msMap = { '24h': 86400000, '7d': 604800000, '30d': 2592000000, '90d': 7776000000 };
       const ms = msMap[range];
